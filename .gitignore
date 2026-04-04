@@ -1,0 +1,12 @@
+# ユーザー固有の環境設定（個人のパスが含まれるため除外）
+.env.bat
+
+# Python キャッシュ
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# OS 生成ファイル
+.DS_Store
+Thumbs.db
