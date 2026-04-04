@@ -1,6 +1,5 @@
-# ユーザー固有の環境設定（個人のパスが含まれるため除外）
-.env.bat
-.env.ps1
+# VSCode 個人設定（インタープリタパスなど）
+.vscode/settings.json
 
 # mac-watcher トリガー / ログファイル
 .git-trigger
