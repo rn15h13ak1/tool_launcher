@@ -3,33 +3,34 @@ chcp 65001 > nul
 setlocal
 
 rem ================================================================
-rem  Tool Launcher - 起動バッチ
-rem  どのディレクトリから呼び出しても正しく動作します。
+rem  Tool Launcher
+rem  Works from any directory.
 rem ================================================================
 
-rem ── このバッチ自身のディレクトリを基準パスとして取得 ─────────────
-rem    %~dp0 は末尾に \ が付くため除去する
+rem -- Get the directory of this batch file (ws	ool_launcher\) ----
+rem    %%~dp0 includes a trailing backslash, so remove it.
 set "MENU_DIR=%~dp0"
-if "%MENU_DIR:~-1%"=="\" set "MENU_DIR=%MENU_DIR:~0,-1%"
+if "%MENU_DIR:~-1%"=="" set "MENU_DIR=%MENU_DIR:~0,-1%"
 
-rem ── .env.bat を読み込み（存在する場合のみ） ──────────────────────
-rem    個人の環境設定（パスや activate 先）はこのファイルに記述します。
-rem    .env.bat は .gitignore により Git 管理対象外です。
+rem -- Load .env.bat if it exists ------------------------------------
+rem    Copy .env.bat.example to .env.bat and edit for your environment.
+rem    .env.bat is excluded from Git via .gitignore.
 if exist "%MENU_DIR%\.env.bat" (
     call "%MENU_DIR%\.env.bat"
 )
 
-rem ── プリコマンドを実行（例: 仮想環境の activate） ─────────────────
-rem    TOOLS_PRE_COMMAND が設定されている場合のみ実行します。
+rem -- Run pre-command if defined ------------------------------------
+rem    Example: set TOOLS_PRE_COMMAND=C:\path	o\.venv\Scriptsctivate.bat
 if defined TOOLS_PRE_COMMAND (
     call "%TOOLS_PRE_COMMAND%"
 )
 
-rem ── Python インタプリタの指定 ─────────────────────────────────────
-rem    TOOLS_PYTHON が未設定の場合は PATH 上の python を使用します。
+rem -- Select Python interpreter ------------------------------------
+rem    Set TOOLS_PYTHON if python is not in PATH.
+rem    Example: set TOOLS_PYTHON=C:\Python311\python.exe
 if not defined TOOLS_PYTHON set "TOOLS_PYTHON=python"
 
-rem ── メニューを起動 ────────────────────────────────────────────────
+rem -- Launch menu --------------------------------------------------
 "%TOOLS_PYTHON%" "%MENU_DIR%\menu.py"
 
 endlocal
