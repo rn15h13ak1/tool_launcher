@@ -245,9 +245,9 @@ def run_backlog_issue_cloner():
         print(f"  [{weekday_names[d.weekday()]}] {d}  ({date_str})")
         hr("-")
 
-        # 今週かつ過去日はスキップ
-        if weeks_offset == 0 and d < today:
-            print("  スキップ（過去日）")
+        # 今週かつ当日以前はスキップ
+        if weeks_offset == 0 and d <= today:
+            print("  スキップ（当日以前）")
             continue
 
         args = ["--date", date_str]
