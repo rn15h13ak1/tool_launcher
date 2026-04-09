@@ -113,6 +113,29 @@ def week_label(weeks_ago: int) -> str:
 
 
 # ================================================================
+# 月〜金の週プリセット
+# ================================================================
+
+def get_mon_to_fri(weeks_offset: int = 0):
+    """
+    現在日付を基準に、月〜金の週範囲を (start, end) で返す。
+      weeks_offset=0 → 今週  weeks_offset=1 → 来週  weeks_offset=2 → 再来週
+    """
+    today = date.today()
+    monday = today - timedelta(days=today.weekday())   # weekday() 月=0
+    start  = monday + timedelta(weeks=weeks_offset)
+    end    = start  + timedelta(days=4)                # 金曜
+    return start, end
+
+
+def week_label_mon_fri(weeks_offset: int) -> str:
+    """メニュー表示用のラベルを生成する（月〜金）"""
+    start, end = get_mon_to_fri(weeks_offset)
+    prefix = {0: "今週  ", 1: "来週  ", 2: "再来週"}.get(weeks_offset, f"{weeks_offset}週後")
+    return f"{prefix}  月 {start}  〜  金 {end}"
+
+
+# ================================================================
 # ── ハンドラ: Backlog 週次レポート ──────────────────────────────
 # ================================================================
 
@@ -185,6 +208,70 @@ def run_excel_to_backlog():
 
 
 # ================================================================
+# ── ハンドラ: Backlog 課題クローン（週次登録） ──────────────────
+# ================================================================
+
+def run_backlog_issue_cloner():
+    """Backlog 課題クローン（週次登録）- 月〜金の5日分を順次実行"""
+    week_items = [week_label_mon_fri(i) for i in range(3)]
+    week_choice = print_menu("Backlog 課題クローン - 週を選択", week_items)
+    if week_choice == 0:
+        return
+
+    weeks_offset = week_choice - 1
+    start, _ = get_mon_to_fri(weeks_offset)
+
+    mode_items = [
+        "ドライラン（確認のみ・デフォルト）",
+        "実行（Backlog に実際に登録・更新）",
+    ]
+    mode_choice = print_menu("Backlog 課題クローン - 実行モード", mode_items)
+    if mode_choice == 0:
+        return
+
+    execute = (mode_choice == 2)
+    cwd = TOOLS_ROOT / "backlog_issue_cloner"
+
+    print()
+    dates = [start + timedelta(days=i) for i in range(5)]
+    weekday_names = ["月", "火", "水", "木", "金"]
+
+    today = date.today()
+    for d in dates:
+        date_str = d.strftime("%Y%m%d")
+
+        print()
+        hr("-")
+        print(f"  [{weekday_names[d.weekday()]}] {d}  ({date_str})")
+        hr("-")
+
+        # 今週かつ過去日はスキップ
+        if weeks_offset == 0 and d < today:
+            print("  スキップ（過去日）")
+            continue
+
+        args = ["--date", date_str]
+        if execute:
+            args.append("--execute")
+        cmd = [sys.executable, "backlog_issue_cloner.py"] + args
+
+        result = subprocess.run(cmd, cwd=cwd)
+
+        if result.returncode != 0:
+            print(f"  エラーが発生しました（終了コード: {result.returncode}）")
+            cont = input("  続行しますか？ [y/N]: ").strip().lower()
+            if cont != "y":
+                print("  中断しました。")
+                wait_enter()
+                return
+
+    print()
+    hr()
+    print("  全日程の処理が完了しました。")
+    wait_enter()
+
+
+# ================================================================
 # コマンド定義
 # ================================================================
 # 新しいツールを追加するときは、ここにエントリを追加するだけです。
@@ -204,6 +291,10 @@ COMMANDS = [
     {
         "label":   "Excel → Backlog 課題登録",
         "handler": run_excel_to_backlog,
+    },
+    {
+        "label":   "Backlog 課題クローン（週次登録）",
+        "handler": run_backlog_issue_cloner,
     },
     # ── 新しいコマンドをここに追加 ──────────────────────────────────
     # {
