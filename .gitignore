@@ -16,3 +16,6 @@ __pycache__/
 # OS 生成ファイル
 .DS_Store
 Thumbs.db
+
+# Claude Code ワークツリー・キャッシュ
+.claude/
