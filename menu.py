@@ -289,32 +289,7 @@ def run_file_sync_checker():
     if choice == 2:
         args.append("--verbose")
 
-    tool_dir = TOOLS_ROOT / "file_sync_checker"
-    venv_python = (
-        tool_dir / ".venv" / "Scripts" / "python.exe"
-        if sys.platform == "win32"
-        else tool_dir / ".venv" / "bin" / "python"
-    )
-    cmd = [str(venv_python), "main.py"] + args
-
-    print()
-    cmd_str = " ".join(["python", "main.py"] + args)
-    print(f"  実行: {cmd_str}")
-    hr("-")
-
-    result = subprocess.run(cmd, cwd=tool_dir)
-
-    hr("-")
-    if result.returncode == 0:
-        print("  完了しました（差分なし）。")
-    elif result.returncode == 1:
-        print("  差分またはエラーを検出しました。レポートを確認してください。")
-    elif result.returncode == 2:
-        print("  設定エラーが発生しました。config.yaml を確認してください。")
-    else:
-        print(f"  終了コード: {result.returncode}")
-
-    wait_enter()
+    run_script("file_sync_checker", "main.py", args)
 
 
 # ================================================================
