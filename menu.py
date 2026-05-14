@@ -272,6 +272,48 @@ def run_backlog_issue_cloner():
 
 
 # ================================================================
+# ── ハンドラ: ファイル同期チェック ─────────────────────────────
+# ================================================================
+
+def run_file_sync_checker():
+    """ファイル同期チェック - 拠点間のファイル差分を検出してレポート生成"""
+    options = [
+        "通常実行",
+        "詳細ログ付き実行（--verbose）",
+    ]
+    choice = print_menu("ファイル同期チェック", options)
+    if choice == 0:
+        return
+
+    args = []
+    if choice == 2:
+        args.append("--verbose")
+
+    tool_dir = TOOLS_ROOT / "file_sync_checker"
+    venv_python = tool_dir / ".venv" / "bin" / "python"
+    cmd = [str(venv_python), "main.py"] + args
+
+    print()
+    cmd_str = " ".join(["python", "main.py"] + args)
+    print(f"  実行: {cmd_str}")
+    hr("-")
+
+    result = subprocess.run(cmd, cwd=tool_dir)
+
+    hr("-")
+    if result.returncode == 0:
+        print("  完了しました（差分なし）。")
+    elif result.returncode == 1:
+        print("  差分またはエラーを検出しました。レポートを確認してください。")
+    elif result.returncode == 2:
+        print("  設定エラーが発生しました。config.yaml を確認してください。")
+    else:
+        print(f"  終了コード: {result.returncode}")
+
+    wait_enter()
+
+
+# ================================================================
 # コマンド定義
 # ================================================================
 # 新しいツールを追加するときは、ここにエントリを追加するだけです。
@@ -295,6 +337,10 @@ COMMANDS = [
     {
         "label":   "Backlog 課題クローン（週次登録）",
         "handler": run_backlog_issue_cloner,
+    },
+    {
+        "label":   "ファイル同期チェック",
+        "handler": run_file_sync_checker,
     },
     # ── 新しいコマンドをここに追加 ──────────────────────────────────
     # {
