@@ -290,7 +290,11 @@ def run_file_sync_checker():
         args.append("--verbose")
 
     tool_dir = TOOLS_ROOT / "file_sync_checker"
-    venv_python = tool_dir / ".venv" / "bin" / "python"
+    venv_python = (
+        tool_dir / ".venv" / "Scripts" / "python.exe"
+        if sys.platform == "win32"
+        else tool_dir / ".venv" / "bin" / "python"
+    )
     cmd = [str(venv_python), "main.py"] + args
 
     print()
