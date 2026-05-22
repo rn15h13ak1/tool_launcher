@@ -60,9 +60,11 @@ def wait_enter():
 # スクリプト実行
 # ================================================================
 
-def run_script(tool_dir_name: str, script_name: str, args: list = None):
+def run_script(tool_dir_name: str, script_name: str, args: list = None, wait: bool = True):
     """
     TOOLS_ROOT / tool_dir_name にある script_name を実行する。
+    wait=False の場合、終了後に Enter 待ちをスキップする（連続実行用）。
+    戻り値: 終了コード（int）
     """
     cwd = TOOLS_ROOT / tool_dir_name
     args = args or []
@@ -81,7 +83,39 @@ def run_script(tool_dir_name: str, script_name: str, args: list = None):
     else:
         print(f"  エラーが発生しました（終了コード: {result.returncode}）")
 
-    wait_enter()
+    if wait:
+        wait_enter()
+    return result.returncode
+
+
+def run_powershell_script(tool_dir_name: str, script_name: str,
+                          ps_args: list = None, wait: bool = True):
+    """
+    TOOLS_ROOT / tool_dir_name にある PowerShell スクリプト (.ps1) を実行する。
+    実行ポリシーは Bypass で起動する（既定のポリシーで弾かれないようにするため）。
+    wait=False の場合、終了後に Enter 待ちをスキップする（連続実行用）。
+    戻り値: 終了コード（int）
+    """
+    cwd = TOOLS_ROOT / tool_dir_name
+    ps_args = ps_args or []
+    cmd = ["powershell", "-ExecutionPolicy", "Bypass", "-File", script_name] + ps_args
+
+    print()
+    cmd_str = " ".join(cmd)
+    print(f"  実行: {cmd_str}")
+    hr("-")
+
+    result = subprocess.run(cmd, cwd=cwd)
+
+    hr("-")
+    if result.returncode == 0:
+        print("  完了しました。")
+    else:
+        print(f"  エラーが発生しました（終了コード: {result.returncode}）")
+
+    if wait:
+        wait_enter()
+    return result.returncode
 
 
 # ================================================================
@@ -316,6 +350,65 @@ def run_filelist():
 
 
 # ================================================================
+# ── ハンドラ: docgrep（ファイル全文検索）─────────────────────────
+# ================================================================
+
+def _docgrep_run_search():
+    """docgrep の全文検索を実行する（キーワードと検索モードを対話入力）"""
+    print()
+    keywords_str = input("  検索キーワード（スペース区切り、空で中止）: ").strip()
+    if not keywords_str:
+        return
+
+    keywords = keywords_str.split()
+
+    mode_items = [
+        "キーワード検索（keyword）",
+        "正規表現検索（regex）",
+        "あいまい検索（fuzzy）",
+    ]
+    mode_choice = print_menu("docgrep - 検索モード", mode_items)
+    if mode_choice == 0:
+        return
+    mode_map = {1: "keyword", 2: "regex", 3: "fuzzy"}
+    mode = mode_map[mode_choice]
+
+    run_script("docgrep", "docgrep.py", keywords + ["--mode", mode])
+
+
+def _docgrep_run_export(wait: bool = True) -> int:
+    """
+    OneNote を Word(.docx) に一括エクスポート（粒度は ps1 既定の section 固定）。
+    戻り値: PowerShell スクリプトの終了コード
+    """
+    return run_powershell_script("docgrep", "export_onenote.ps1", wait=wait)
+
+
+def run_docgrep():
+    """docgrep - ファイルサーバ全文検索（OneNote エクスポートを含む）"""
+    options = [
+        "全文検索を実行",
+        "OneNote エクスポート（docgrep 用前処理）",
+        "OneNote エクスポート → 全文検索（連続実行）",
+    ]
+    choice = print_menu("docgrep", options)
+    if choice == 0:
+        return
+
+    if choice == 1:
+        _docgrep_run_search()
+    elif choice == 2:
+        _docgrep_run_export(wait=True)
+    elif choice == 3:
+        rc = _docgrep_run_export(wait=False)
+        if rc == 0:
+            _docgrep_run_search()
+        else:
+            print(f"\n  エクスポートが失敗したため検索を中止します（終了コード: {rc}）")
+            wait_enter()
+
+
+# ================================================================
 # コマンド定義
 # ================================================================
 # 新しいツールを追加するときは、ここにエントリを追加するだけです。
@@ -347,6 +440,10 @@ COMMANDS = [
     {
         "label":   "ファイルリスト生成",
         "handler": run_filelist,
+    },
+    {
+        "label":   "docgrep（ファイル全文検索）",
+        "handler": run_docgrep,
     },
     # ── 新しいコマンドをここに追加 ──────────────────────────────────
     # {
