@@ -353,27 +353,96 @@ def run_filelist():
 # ── ハンドラ: docgrep（ファイル全文検索）─────────────────────────
 # ================================================================
 
-def _docgrep_run_search():
-    """docgrep の全文検索を実行する（キーワードと検索モードを対話入力）"""
+def _docgrep_input_paths() -> list:
+    """パスを複数入力させる（空Enter で終了）"""
     print()
-    keywords_str = input("  検索キーワード（スペース区切り、空で中止）: ").strip()
-    if not keywords_str:
+    print("  検索パスを入力してください（1行1パス、空Enter で確定）。")
+    paths = []
+    while True:
+        line = input(f"  パス{len(paths) + 1}: ").strip()
+        if not line:
+            break
+        paths.append(line)
+    return paths
+
+
+def _docgrep_run_search():
+    """
+    docgrep の全文検索を実行する。
+    フロー:
+      1. 検索パスを config.yaml に従うか手動指定か選択
+      2. 検索キーワードを入力
+      3. 検索モードを選択
+      4. 入力内容を確認（実行 / 最初から入力し直し / 中止）
+      5. 実行
+    """
+    while True:
+        # Step 1: 検索パス選択
+        path_choice = print_menu(
+            "docgrep - 検索パス",
+            ["config.yaml の設定に従う", "パスを指定する"],
+        )
+        if path_choice == 0:
+            return
+
+        custom_paths = []
+        if path_choice == 2:
+            custom_paths = _docgrep_input_paths()
+            if not custom_paths:
+                print("  パスが入力されていません。中止します。")
+                wait_enter()
+                return
+
+        # Step 2: 検索キーワード入力
+        print()
+        keywords_str = input("  検索キーワード（スペース区切り、空で中止）: ").strip()
+        if not keywords_str:
+            return
+        keywords = keywords_str.split()
+
+        # Step 3: 検索モード選択
+        mode_items = [
+            "キーワード検索（keyword）",
+            "正規表現検索（regex）",
+            "あいまい検索（fuzzy）",
+        ]
+        mode_choice = print_menu("docgrep - 検索モード", mode_items)
+        if mode_choice == 0:
+            return
+        mode_map = {1: "keyword", 2: "regex", 3: "fuzzy"}
+        mode = mode_map[mode_choice]
+
+        # Step 4: 入力内容の確認
+        print()
+        hr()
+        print("  入力内容の確認")
+        hr()
+        if custom_paths:
+            print("  検索パス       :")
+            for i, p in enumerate(custom_paths, 1):
+                print(f"    [{i}] {p}")
+        else:
+            print("  検索パス       : config.yaml の設定に従う")
+        print(f"  検索キーワード : {' '.join(keywords)}")
+        print(f"  検索モード     : {mode}")
+        hr()
+
+        confirm_choice = print_menu(
+            "実行確認",
+            ["この内容で実行", "最初から入力し直す"],
+            back_label="中止",
+        )
+        if confirm_choice == 0:
+            return
+        if confirm_choice == 2:
+            continue  # Step 1 に戻る
+
+        # Step 5: 実行
+        args = keywords + ["--mode", mode]
+        for p in custom_paths:
+            args.extend(["-p", p])
+        run_script("docgrep", "docgrep.py", args)
         return
-
-    keywords = keywords_str.split()
-
-    mode_items = [
-        "キーワード検索（keyword）",
-        "正規表現検索（regex）",
-        "あいまい検索（fuzzy）",
-    ]
-    mode_choice = print_menu("docgrep - 検索モード", mode_items)
-    if mode_choice == 0:
-        return
-    mode_map = {1: "keyword", 2: "regex", 3: "fuzzy"}
-    mode = mode_map[mode_choice]
-
-    run_script("docgrep", "docgrep.py", keywords + ["--mode", mode])
 
 
 def _docgrep_run_export(wait: bool = True) -> int:
