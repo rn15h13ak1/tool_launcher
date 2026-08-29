@@ -515,6 +515,34 @@ def test_run_directly_reports_batch_input_error(monkeypatch, history_file,
     assert "無人実行できません" in capsys.readouterr().out
 
 
+def test_run_directly_warns_about_unused_answers(monkeypatch, history_file,
+                                                 capsys):
+    """余った選択は指定ミスの可能性があるので警告する（終了コードは変えない）。"""
+    monkeypatch.setattr(menu, "COMMANDS",
+                        [{"label": "T", "handler": lambda: 0, "tool_dir": "t"}])
+    monkeypatch.setattr(menu, "load_yaml_commands", lambda: [])
+    assert menu.run_directly("1", presets=[1, 9]) == 0
+    out = capsys.readouterr().out
+    assert "使われなかった選択があります: 1 9" in out
+
+
+def test_run_directly_is_quiet_when_all_answers_used(monkeypatch, history_file,
+                                                     capsys):
+    def handler():
+        return menu.print_menu("サブ", ["A", "B"])
+    monkeypatch.setattr(menu, "COMMANDS",
+                        [{"label": "T", "handler": handler, "tool_dir": "t"}])
+    monkeypatch.setattr(menu, "load_yaml_commands", lambda: [])
+    menu.run_directly("1", presets=[2])
+    assert "使われなかった選択" not in capsys.readouterr().out
+
+
+def test_docgrep_entry_has_no_submenu():
+    """docgrep はランチャー側にサブメニューを持たない（README の注記と対応）。"""
+    entry = next(c for c in menu.COMMANDS if c["tool_dir"] == "docgrep")
+    assert not entry.get("options")
+
+
 def test_run_directly_restores_interactive_mode(monkeypatch, history_file):
     monkeypatch.setattr(menu, "COMMANDS",
                         [{"label": "T", "handler": lambda: 0, "tool_dir": "t"}])

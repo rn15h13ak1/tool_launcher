@@ -47,6 +47,11 @@ def set_batch_mode(answers: list = None, assume_yes: bool = False) -> None:
     _ASSUME_YES = assume_yes
 
 
+def unused_answers() -> list:
+    """使われずに残ったサブ選択を返す（指定ミスの検出用）。"""
+    return list(_PRESET_ANSWERS)
+
+
 def hr(char="="):
     print(char * WIDTH)
 
@@ -776,6 +781,13 @@ def run_directly(arg: str, presets: list = None, assume_yes: bool = False) -> in
     except EOFError:
         print("\n\n  入力が終了しました。")
         return 1
+    else:
+        # 使われなかった選択が残っていたら指定ミスの可能性がある
+        leftover = unused_answers()
+        if leftover:
+            print(f"\n  ※ 使われなかった選択があります: "
+                  f"{' '.join(str(n) for n in leftover)}")
+            print("     指定が実際のメニュー構成とずれていないか確認してください。")
     finally:
         set_batch_mode()          # 対話実行に戻す
 
