@@ -7,7 +7,14 @@
             "request": "launch",
             "program": "${workspaceFolder}/menu.py",
             "console": "integratedTerminal",
-            "justMyCode": false
+            "justMyCode": false,
+            // 使用する Python を固定する。選択中のインタプリタに依存すると
+            // tools.yaml（PyYAML が必要）の可否が環境によって変わるため。
+            // .venv が無い場合は README のセットアップ手順を参照。
+            "python": "${workspaceFolder}/.venv/bin/python",
+            "windows": {
+                "python": "${workspaceFolder}\\.venv\\Scripts\\python.exe"
+            }
         }
     ]
 }

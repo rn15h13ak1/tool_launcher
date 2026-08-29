@@ -10,17 +10,22 @@
 - ランチャー自体は標準ライブラリのみで動作します。
   `tools.yaml` でツールを追加する場合のみ PyYAML が必要です。
 
-### セットアップ（任意）
-
-`tools.yaml` を使う場合やテストを実行する場合は、仮想環境を用意します。
-Homebrew や OS 同梱の Python は PEP 668 で保護されており
-`pip install` が拒否される（`externally-managed-environment`）ため、
-仮想環境を作るのが確実です。
+### セットアップ
 
 ```bash
 python3 -m venv .venv
 .venv/bin/pip install -r requirements-dev.txt    # Windows: .venv\Scripts\pip
 ```
+
+`python menu.py` で使うだけなら仮想環境は不要ですが、次の場合に必要です。
+
+- **VSCode の F5 で起動する**（`.vscode/launch.json` が `.venv` を指しているため）
+- `tools.yaml` でツールを追加する（PyYAML が必要）
+- テストを実行する（pytest が必要）
+
+Homebrew や OS 同梱の Python は PEP 668 で保護されており、
+`pip install` が `externally-managed-environment` で拒否されます。
+仮想環境を作るのが確実です。
 
 ### 各ツールの依存ライブラリ
 
