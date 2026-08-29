@@ -33,7 +33,28 @@ python -m venv .venv
 ```bash
 python menu.py        # メニューを表示
 python menu.py 6      # 6番のツールを直接起動
+python menu.py --list # ツール一覧
+python menu.py --log  # 直近の実行ログ
 ```
+
+直接起動では**ツールの終了コードがそのまま返る**ため、バッチやタスク
+スケジューラから成否を判定できます。
+
+## 実行ログ
+
+実行したコマンドと終了コードを直近50件まで記録します
+（`~/.tool_launcher_history.json`）。Backlog を書き換える操作を
+いつ実行したか後から確認できます。
+
+```
+$ python menu.py --log
+  直近の実行 2 件（新しい順）  /Users/you/.tool_launcher_history.json
+--------------------------------------------------------------
+    2026-08-29 10:37:07  excel_to_backlog/excel_to_backlog.py --execute   → 0
+  ! 2026-08-29 10:37:06  filelist/filelist.py --dry-run   → 2
+```
+
+先頭の `!` は終了コードが 0 以外だったことを示します。
 
 VSCode では `F5`（`.vscode/launch.json` に設定済み）でも起動できます。
 

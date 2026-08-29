@@ -12,7 +12,7 @@ Windows コマンドプロンプトから各種ツールをメニュー形式で
 import json
 import subprocess
 import sys
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 # ================================================================
@@ -130,6 +130,7 @@ def run_script(tool_dir_name: str, script_name: str, args: list = None, wait: bo
     hr("-")
 
     result = subprocess.run(cmd, cwd=cwd)
+    append_run_log(tool_dir_name, script_name, args, result.returncode)
 
     hr("-")
     if result.returncode == 0:
@@ -546,6 +547,7 @@ def menu_labels(commands: list = None) -> list:
 # ================================================================
 
 HISTORY_PATH = Path.home() / ".tool_launcher_history.json"
+RUN_LOG_LIMIT = 50          # 実行ログとして保持する件数
 
 
 def load_last_label() -> str:
@@ -560,15 +562,69 @@ def load_last_label() -> str:
         return ""
 
 
-def save_last_label(label: str) -> None:
-    """実行したツールのラベルを保存する。失敗しても無視する。"""
+def _load_history() -> dict:
+    """履歴ファイル全体を読む。読めなければ空 dict。"""
+    try:
+        with HISTORY_PATH.open(encoding="utf-8") as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def _write_history(data: dict) -> None:
+    """履歴ファイルを書く。失敗しても無視する。"""
     try:
         HISTORY_PATH.write_text(
-            json.dumps({"last_label": label}, ensure_ascii=False, indent=2),
+            json.dumps(data, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
     except Exception:
         pass
+
+
+def save_last_label(label: str) -> None:
+    """実行したツールのラベルを保存する。失敗しても無視する。"""
+    data = _load_history()
+    data["last_label"] = label
+    _write_history(data)
+
+
+def append_run_log(tool_dir: str, script: str, args: list, rc: int) -> None:
+    """
+    実行したコマンドと結果を履歴に追記する。
+    Backlog を書き換える操作（--execute）が「いつ・何を」実行されたか
+    後から追えるようにするのが目的。
+    """
+    data = _load_history()
+    runs = data.get("runs")
+    if not isinstance(runs, list):
+        runs = []
+    runs.append({
+        "at":     datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "tool":   tool_dir,
+        "script": script,
+        "args":   list(args),
+        "rc":     rc,
+    })
+    data["runs"] = runs[-RUN_LOG_LIMIT:]
+    _write_history(data)
+
+
+def print_run_log() -> None:
+    """直近の実行ログを表示する。"""
+    runs = _load_history().get("runs") or []
+    if not runs:
+        print("  実行ログはまだありません。")
+        return
+    print(f"  直近の実行 {len(runs)} 件（新しい順）  {HISTORY_PATH}")
+    hr("-")
+    for run in reversed(runs):
+        args = " ".join(run.get("args") or [])
+        mark = "  " if run.get("rc") == 0 else " !"
+        print(f" {mark} {run.get('at', '')}  "
+              f"{run.get('tool', '')}/{run.get('script', '')} {args}".rstrip()
+              + f"   → {run.get('rc')}")
 
 
 def default_choice(commands: list) -> int:
@@ -602,6 +658,7 @@ def print_help() -> None:
     print("  python menu.py            メニューを表示する")
     print("  python menu.py <番号>     指定した番号のツールを直接起動する")
     print("  python menu.py --list     ツール一覧を表示する")
+    print("  python menu.py --log      直近の実行ログを表示する")
     print("  python menu.py --help     このヘルプを表示する")
     print()
     print("ツール一覧:")
@@ -615,6 +672,9 @@ def run_directly(arg: str) -> int:
         return 0
     if arg in ("-l", "--list"):
         print_tool_list()
+        return 0
+    if arg == "--log":
+        print_run_log()
         return 0
 
     commands = all_commands()

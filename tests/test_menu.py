@@ -350,6 +350,64 @@ def test_broken_tools_yaml_does_not_raise(monkeypatch, tmp_path, capsys):
 
 
 # ================================================================
+# 実行ログ
+# ================================================================
+
+def test_run_log_records_command_and_exit_code(history_file):
+    menu.append_run_log("excel_to_backlog", "excel_to_backlog.py", ["--execute"], 0)
+    runs = menu._load_history()["runs"]
+    assert len(runs) == 1
+    assert runs[0]["tool"] == "excel_to_backlog"
+    assert runs[0]["args"] == ["--execute"]
+    assert runs[0]["rc"] == 0
+    assert runs[0]["at"]
+
+
+def test_run_log_keeps_last_label(history_file):
+    menu.save_last_label("ファイルリスト生成")
+    menu.append_run_log("filelist", "filelist.py", [], 0)
+    data = menu._load_history()
+    assert data["last_label"] == "ファイルリスト生成"
+    assert len(data["runs"]) == 1
+
+
+def test_run_log_is_capped(history_file, monkeypatch):
+    monkeypatch.setattr(menu, "RUN_LOG_LIMIT", 5)
+    for i in range(12):
+        menu.append_run_log("t", "s.py", [str(i)], 0)
+    runs = menu._load_history()["runs"]
+    assert len(runs) == 5
+    assert [r["args"][0] for r in runs] == ["7", "8", "9", "10", "11"]
+
+
+def test_run_log_survives_broken_history(history_file):
+    history_file.write_text("{ broken", encoding="utf-8")
+    menu.append_run_log("t", "s.py", [], 1)
+    assert len(menu._load_history()["runs"]) == 1
+
+
+def test_print_run_log_without_entries(history_file, capsys):
+    menu.print_run_log()
+    assert "まだありません" in capsys.readouterr().out
+
+
+def test_print_run_log_marks_failures(history_file, capsys):
+    menu.append_run_log("t", "ok.py", [], 0)
+    menu.append_run_log("t", "ng.py", ["--execute"], 3)
+    out = capsys.readouterr()          # 破棄
+    menu.print_run_log()
+    out = capsys.readouterr().out
+    assert "ng.py --execute" in out
+    assert "→ 3" in out
+    # 新しい順に並ぶ
+    assert out.index("ng.py") < out.index("ok.py")
+
+
+def test_log_option_exits_zero(history_file):
+    assert menu.run_directly("--log") == 0
+
+
+# ================================================================
 # 終了コードの伝播と履歴の記録タイミング
 # ================================================================
 
