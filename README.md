@@ -77,6 +77,21 @@ docgrep 自身の対話メニューを起動するためです。自動化する
 `--yes` は破壊的操作を自動承認するため、**登録内容を確認したうえで**設定して
 ください。ドライラン（`3 2 1` など）には不要です。
 
+### 子ツールへの `--yes` 伝播
+
+`excel_to_backlog` と `backlog_issue_cloner` は、非対話環境を検知すると
+「確認できないのでスキップ」して**正常終了**します。そのためランチャーは、
+`--yes` を付けた無人実行のときだけ子ツールにも `--yes` を渡します。
+
+| 実行方法 | 子ツールに渡す引数 |
+|---|---|
+| メニューから対話実行 | `--execute`（子ツール側で1件ずつ確認する） |
+| `menu.py 2 3 --yes` | `--execute --yes` |
+| ドライラン | `--yes` は付けない |
+
+これが無いと、cron から実行したときに**1件も登録されないまま成功扱い**に
+なります。
+
 ## 実行ログ
 
 実行したコマンドと終了コードを直近50件まで記録します
@@ -104,9 +119,9 @@ VSCode では `F5`（`.vscode/launch.json` に設定済み）でも起動でき�
 | # | ラベル | 呼び出すツール | サブメニュー |
 |---|---|---|---|
 | 1 | Backlog 週次レポート生成 | `backlog_report/backlog_weekly_report.py` | 土〜金の週プリセット4件＋日付手動入力 |
-| 2 | Excel → Backlog 課題登録 | `excel_to_backlog/excel_to_backlog.py` | ドライラン / プレビュー / 実行 |
+| 2 | Excel → Backlog 課題登録 | `excel_to_backlog/excel_to_backlog.py` | ドライラン / プレビュー / 実行 / 列名一覧 / 設定名一覧 |
 | 3 | Backlog 課題クローン（週次登録） | `backlog_issue_cloner/backlog_issue_cloner.py` | 今週・来週・再来週 × ドライラン / 実行 |
-| 4 | ファイル同期チェック | `file_sync_checker/main.py` | 通常実行 / 詳細ログ |
+| 4 | ファイル同期チェック | `file_sync_checker/main.py` | 通常実行 / 詳細ログ / 再試行あり |
 | 5 | ファイルリスト生成 | `filelist/filelist.py` | 通常実行 / ドライラン / 詳細ログ |
 | 6 | docgrep（ファイル全文検索） | `docgrep/menu.py` | docgrep 側の対話メニューに委譲 |
 

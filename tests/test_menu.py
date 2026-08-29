@@ -670,11 +670,62 @@ def test_backlog_report_manual_input_is_blocked_in_batch(freeze_today,
 @pytest.mark.parametrize("choice, expected", [
     (1, []),
     (2, ["--preview"]),
+    (4, ["--show-columns"]),
+    (5, ["--list-master"]),
 ])
 def test_excel_to_backlog_passes_mode(spy_run_script, choice, expected):
     menu.set_batch_mode([choice])
     assert handler_for("Excel")() == 0
     assert spy_run_script.calls[0]["args"] == expected
+
+
+# ── 子ツールへの --yes 伝播 ────────────────────────────────────
+# excel_to_backlog / backlog_issue_cloner は非対話環境を検知すると
+# 「確認できないのでスキップ」して正常終了する。無人実行で承認済みなのに
+# --yes を渡さないと、1件も処理せず成功したように見えてしまう。
+
+def test_execute_passes_yes_to_child_when_unattended(spy_run_script):
+    menu.set_batch_mode([3], assume_yes=True)
+    assert handler_for("Excel")() == 0
+    assert spy_run_script.calls[0]["args"] == ["--execute", "--yes"]
+
+
+def test_execute_does_not_pass_yes_in_interactive_mode(monkeypatch,
+                                                       spy_run_script):
+    """対話実行では子ツール側の個別確認を残す。"""
+    monkeypatch.setattr(menu, "print_menu", lambda *a, **kw: 3)
+    monkeypatch.setattr(menu, "ask_yes_no", lambda *a, **kw: True)
+    assert handler_for("Excel")() == 0
+    assert spy_run_script.calls[0]["args"] == ["--execute"]
+
+
+def test_non_execute_options_never_get_yes(spy_run_script):
+    menu.set_batch_mode([2], assume_yes=True)
+    handler_for("Excel")()
+    assert "--yes" not in spy_run_script.calls[0]["args"]
+
+
+def test_cloner_passes_yes_to_child_when_unattended(freeze_today,
+                                                    spy_run_script):
+    _cloner(freeze_today, MONDAY, [2, 2], assume_yes=True)
+    assert all(c["args"][-2:] == ["--execute", "--yes"]
+               for c in spy_run_script.calls)
+
+
+def test_cloner_dry_run_never_gets_yes(freeze_today, spy_run_script):
+    _cloner(freeze_today, MONDAY, [2, 1], assume_yes=True)
+    assert all("--yes" not in c["args"] for c in spy_run_script.calls)
+    assert all("--execute" not in c["args"] for c in spy_run_script.calls)
+
+
+def test_auto_yes_args_only_in_batch_mode():
+    menu.set_batch_mode()
+    assert menu.auto_yes_args() == []
+    menu.set_batch_mode([1])                      # 無人だが --yes なし
+    assert menu.auto_yes_args() == []
+    menu.set_batch_mode([1], assume_yes=True)
+    assert menu.auto_yes_args() == ["--yes"]
+    assert menu.auto_yes_args("-y") == ["-y"]
 
 
 def test_excel_to_backlog_execute_requires_yes(spy_run_script):
@@ -687,7 +738,8 @@ def test_excel_to_backlog_execute_requires_yes(spy_run_script):
 def test_excel_to_backlog_execute_with_yes(spy_run_script):
     menu.set_batch_mode([3], assume_yes=True)
     assert handler_for("Excel")() == 0
-    assert spy_run_script.calls[0]["args"] == ["--execute"]
+    # 無人実行では子ツールにも --yes を渡す（渡さないと全件スキップされる）
+    assert spy_run_script.calls[0]["args"] == ["--execute", "--yes"]
 
 
 def test_excel_to_backlog_declined_runs_nothing(monkeypatch, spy_run_script,
@@ -715,6 +767,7 @@ def test_filelist_passes_mode(spy_run_script, choice, expected):
 @pytest.mark.parametrize("choice, expected", [
     (1, []),
     (2, ["--verbose"]),
+    (3, ["--retry", "2"]),
 ])
 def test_file_sync_checker_passes_mode(spy_run_script, choice, expected):
     menu.set_batch_mode([choice])

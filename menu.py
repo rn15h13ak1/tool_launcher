@@ -52,6 +52,18 @@ def unused_answers() -> list:
     return list(_PRESET_ANSWERS)
 
 
+def auto_yes_args(flag: str = "--yes") -> list:
+    """
+    無人実行で --yes が指定されているとき、子ツールにも渡す確認スキップ引数。
+
+    excel_to_backlog / backlog_issue_cloner は非対話環境を検知すると
+    「確認できないのでスキップ」して正常終了する。ランチャー側で承認済みなのに
+    この引数を渡さないと、1 件も処理せず成功したように見えてしまう。
+    対話実行では渡さないので、子ツール側の個別確認はそのまま残る。
+    """
+    return [flag] if (_BATCH_MODE and _ASSUME_YES) else []
+
+
 def hr(char="="):
     print(char * WIDTH)
 
@@ -381,7 +393,9 @@ def run_backlog_issue_cloner():
 
         args = ["--date", date_str]
         if execute:
-            args.append("--execute")
+            # 無人実行で承認済みなら --yes も渡す。渡さないと子ツールが
+            # 非対話環境と判断して全件スキップし、成功扱いで終わってしまう。
+            args += ["--execute"] + auto_yes_args()
 
         rc = run_script("backlog_issue_cloner", "backlog_issue_cloner.py",
                         args, wait=False)
@@ -441,7 +455,11 @@ def make_tool_handler(entry: dict):
                 wait_enter()
                 return None
 
-        return run_script(tool_dir, script, list(option.get("args") or []))
+        args = list(option.get("args") or [])
+        # 無人実行で承認済みなら、子ツールの確認もスキップさせる
+        if option.get("yes_arg"):
+            args += auto_yes_args(option["yes_arg"])
+        return run_script(tool_dir, script, args)
 
     handler.__doc__ = label
     return handler
@@ -482,11 +500,17 @@ COMMANDS = [
         "label":    "Excel → Backlog 課題登録",
         "tool_dir": "excel_to_backlog",
         "script":   "excel_to_backlog.py",
+        # 既存の無人実行コマンドを壊さないよう、新しい選択肢は末尾に足すこと
         "options": [
             {"label": "ドライラン（変換結果確認のみ・デフォルト）", "args": []},
             {"label": "プレビュー（Markdown ファイルに出力）", "args": ["--preview"]},
             {"label": "実行（Backlog に実際に登録・更新）", "args": ["--execute"],
-             "confirm": "Backlog に実際に登録・更新します。よろしいですか？"},
+             "confirm": "Backlog に実際に登録・更新します。よろしいですか？",
+             "yes_arg": "--yes"},
+            {"label": "Excel の列名を一覧表示（--show-columns）",
+             "args": ["--show-columns"]},
+            {"label": "設定に使える名前を一覧表示（--list-master）",
+             "args": ["--list-master"]},
         ],
     },
     {
@@ -498,9 +522,12 @@ COMMANDS = [
         "label":    "ファイル同期チェック",
         "tool_dir": "file_sync_checker",
         "script":   "main.py",
+        # 既存の無人実行コマンドを壊さないよう、新しい選択肢は末尾に足すこと
         "options": [
             {"label": "通常実行", "args": []},
             {"label": "詳細ログ付き実行（--verbose）", "args": ["--verbose"]},
+            {"label": "再試行あり（--retry 2・瞬断やロック対策）",
+             "args": ["--retry", "2"]},
         ],
     },
     {
