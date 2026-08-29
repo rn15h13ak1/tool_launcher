@@ -204,6 +204,66 @@ def test_menu_labels_are_clean_when_tools_exist():
 
 
 # ================================================================
+# 実行履歴
+# ================================================================
+
+@pytest.fixture
+def history_file(monkeypatch, tmp_path):
+    path = tmp_path / "history.json"
+    monkeypatch.setattr(menu, "HISTORY_PATH", path)
+    return path
+
+
+def test_last_label_round_trip(history_file):
+    menu.save_last_label("ファイルリスト生成")
+    assert menu.load_last_label() == "ファイルリスト生成"
+
+
+def test_load_last_label_without_history(history_file):
+    assert menu.load_last_label() == ""
+
+
+def test_broken_history_is_ignored(history_file):
+    history_file.write_text("{ broken", encoding="utf-8")
+    assert menu.load_last_label() == ""
+
+
+def test_save_last_label_survives_unwritable_path(monkeypatch, tmp_path):
+    monkeypatch.setattr(menu, "HISTORY_PATH", tmp_path / "no" / "such" / "h.json")
+    menu.save_last_label("何か")          # 例外を投げないこと
+
+
+def test_default_choice_matches_by_label(history_file):
+    commands = [{"label": "A"}, {"label": "B"}, {"label": "C"}]
+    menu.save_last_label("B")
+    assert menu.default_choice(commands) == 2
+    # ツールが増えて位置がずれても、ラベルで追従する
+    assert menu.default_choice([{"label": "X"}] + commands) == 3
+
+
+def test_default_choice_is_none_for_unknown_label(history_file):
+    menu.save_last_label("もう存在しないツール")
+    assert menu.default_choice([{"label": "A"}]) is None
+
+
+def test_print_menu_empty_input_uses_default(monkeypatch):
+    monkeypatch.setattr("builtins.input", lambda _: "")
+    assert menu.print_menu("t", ["A", "B"], default=2) == 2
+
+
+def test_print_menu_empty_input_without_default_reprompts(monkeypatch, capsys):
+    answers = iter(["", "1"])
+    monkeypatch.setattr("builtins.input", lambda _: next(answers))
+    assert menu.print_menu("t", ["A", "B"]) == 1
+    assert "無効な入力です" in capsys.readouterr().out
+
+
+def test_print_menu_explicit_zero_beats_default(monkeypatch):
+    monkeypatch.setattr("builtins.input", lambda _: "0")
+    assert menu.print_menu("t", ["A", "B"], default=1) == 0
+
+
+# ================================================================
 # tools.yaml
 # ================================================================
 

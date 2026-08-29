@@ -9,6 +9,7 @@ Windows コマンドプロンプトから各種ツールをメニュー形式で
   2. ファイル末尾の COMMANDS リストにエントリを追加する
 """
 
+import json
 import subprocess
 import sys
 from datetime import date, timedelta
@@ -31,19 +32,27 @@ def hr(char="="):
     print(char * WIDTH)
 
 
-def print_menu(title, items, back_label="戻る"):
-    """メニューを表示して選択番号を返す。0 = 戻る / 終了"""
+def print_menu(title, items, back_label="戻る", default=None):
+    """
+    メニューを表示して選択番号を返す。0 = 戻る / 終了
+    default に番号を渡すと、空 Enter でその番号を選べる。
+    """
     while True:
         print()
         hr()
         print(f"  {title}")
         hr()
         for i, item in enumerate(items, 1):
-            print(f"  {i}. {item}")
+            mark = " ←前回" if default == i else ""
+            print(f"  {i}. {item}{mark}")
         hr("-")
         print(f"  0. {back_label}")
         hr()
-        choice = input("番号を入力してください: ").strip()
+        prompt = ("番号を入力してください"
+                  + (f" [Enter={default}]: " if default else ": "))
+        choice = input(prompt).strip()
+        if not choice and default:
+            return default
         if choice == "0":
             return 0
         if choice.isdigit() and 1 <= int(choice) <= len(items):
@@ -524,6 +533,50 @@ def menu_labels(commands: list = None) -> list:
 
 
 # ================================================================
+# 実行履歴（前回選んだツールを覚えて既定にする）
+# ================================================================
+
+HISTORY_PATH = Path.home() / ".tool_launcher_history.json"
+
+
+def load_last_label() -> str:
+    """前回実行したツールのラベルを返す。読めなければ空文字。"""
+    try:
+        with HISTORY_PATH.open(encoding="utf-8") as f:
+            data = json.load(f)
+        label = data.get("last_label", "")
+        return label if isinstance(label, str) else ""
+    except Exception:
+        # 履歴が壊れていてもランチャーの動作は妨げない
+        return ""
+
+
+def save_last_label(label: str) -> None:
+    """実行したツールのラベルを保存する。失敗しても無視する。"""
+    try:
+        HISTORY_PATH.write_text(
+            json.dumps({"last_label": label}, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+    except Exception:
+        pass
+
+
+def default_choice(commands: list) -> int:
+    """
+    前回実行したツールの番号を返す（無ければ None）。
+    番号ではなくラベルで覚えるので、tools.yaml の増減で位置がずれても追従する。
+    """
+    last = load_last_label()
+    if not last:
+        return None
+    for i, cmd in enumerate(commands, 1):
+        if cmd["label"] == last:
+            return i
+    return None
+
+
+# ================================================================
 # メインループ
 # ================================================================
 
@@ -564,6 +617,7 @@ def run_directly(arg: str) -> int:
         return 2
 
     cmd = commands[int(arg) - 1]
+    save_last_label(cmd["label"])
     print(f"\n  直接実行: {cmd['label']}")
     try:
         cmd["handler"]()
@@ -586,11 +640,14 @@ def main():
             # tools.yaml の編集を再起動なしで反映するため、毎回読み直す
             commands = all_commands()
             choice = print_menu("ツールメニュー", menu_labels(commands),
-                                back_label="終了")
+                                back_label="終了",
+                                default=default_choice(commands))
             if choice == 0:
                 print("\n  終了します。\n")
                 break
-            commands[choice - 1]["handler"]()
+            selected = commands[choice - 1]
+            save_last_label(selected["label"])
+            selected["handler"]()
         except KeyboardInterrupt:
             # 長時間実行のツールを Ctrl+C で止めてもメニューには戻れるようにする
             print("\n\n  中断しました。メニューに戻ります。")
