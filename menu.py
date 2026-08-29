@@ -250,7 +250,6 @@ def run_backlog_issue_cloner():
         return
 
     execute = (mode_choice == 2)
-    cwd = TOOLS_ROOT / "backlog_issue_cloner"
 
     print()
     dates = [start + timedelta(days=i) for i in range(5)]
@@ -273,12 +272,11 @@ def run_backlog_issue_cloner():
         args = ["--date", date_str]
         if execute:
             args.append("--execute")
-        cmd = [sys.executable, "backlog_issue_cloner.py"] + args
 
-        result = subprocess.run(cmd, cwd=cwd)
+        rc = run_script("backlog_issue_cloner", "backlog_issue_cloner.py",
+                        args, wait=False)
 
-        if result.returncode != 0:
-            print(f"  エラーが発生しました（終了コード: {result.returncode}）")
+        if rc != 0:
             cont = input("  続行しますか？ [y/N]: ").strip().lower()
             if cont != "y":
                 print("  中断しました。")
