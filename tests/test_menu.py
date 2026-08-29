@@ -459,6 +459,197 @@ def test_run_directly_restores_interactive_mode(monkeypatch, history_file):
 
 
 # ================================================================
+# ハンドラ: 課題クローンの週次ループ
+# ================================================================
+
+@pytest.fixture
+def spy_run_script(monkeypatch):
+    """run_script を呼び出し記録に差し替える（既定の戻り値は 0）。"""
+    calls = []
+    rcs = {"value": 0}
+
+    def fake(tool_dir, script, args=None, wait=True):
+        calls.append({"tool": tool_dir, "script": script,
+                      "args": list(args or []), "wait": wait})
+        rc = rcs["value"]
+        return rc(len(calls)) if callable(rc) else rc
+
+    monkeypatch.setattr(menu, "run_script", fake)
+    fake.calls = calls
+    fake.set_rc = lambda v: rcs.__setitem__("value", v)
+    return fake
+
+
+def _cloner(freeze_today, today, presets, assume_yes=False):
+    freeze_today(today)
+    menu.set_batch_mode(presets, assume_yes)
+    return menu.run_backlog_issue_cloner()
+
+
+def test_cloner_next_week_dry_run_covers_five_days(freeze_today, spy_run_script):
+    rc = _cloner(freeze_today, MONDAY, [2, 1])          # 来週 → ドライラン
+    assert rc == 0
+    assert len(spy_run_script.calls) == 5
+    dates = [c["args"][1] for c in spy_run_script.calls]
+    assert dates == ["20260831", "20260901", "20260902", "20260903", "20260904"]
+    assert all("--execute" not in c["args"] for c in spy_run_script.calls)
+    assert all(c["wait"] is False for c in spy_run_script.calls)
+
+
+def test_cloner_execute_adds_execute_flag(freeze_today, spy_run_script):
+    rc = _cloner(freeze_today, MONDAY, [2, 2], assume_yes=True)
+    assert rc == 0
+    assert len(spy_run_script.calls) == 5
+    assert all("--execute" in c["args"] for c in spy_run_script.calls)
+
+
+def test_cloner_execute_requires_yes_in_batch(freeze_today, spy_run_script):
+    with pytest.raises(menu.BatchInputRequired, match="--yes"):
+        _cloner(freeze_today, MONDAY, [2, 2])           # --yes なし
+    assert spy_run_script.calls == []                   # 1件も実行しない
+
+
+def test_cloner_this_week_skips_past_days(freeze_today, spy_run_script):
+    rc = _cloner(freeze_today, date(2026, 8, 26), [1, 1])   # 水曜に「今週」
+    assert rc == 0
+    dates = [c["args"][1] for c in spy_run_script.calls]
+    assert dates == ["20260827", "20260828"]            # 木・金のみ
+
+
+@pytest.mark.parametrize("today", [FRIDAY, SATURDAY, SUNDAY])
+def test_cloner_this_week_with_no_targets_runs_nothing(freeze_today,
+                                                       spy_run_script,
+                                                       capsys, today):
+    rc = _cloner(freeze_today, today, [1, 1])
+    assert rc is None                                   # キャンセル扱い
+    assert spy_run_script.calls == []
+    assert "登録対象の日付がありません" in capsys.readouterr().out
+
+
+def test_cloner_stops_on_error_and_returns_exit_code(freeze_today,
+                                                     spy_run_script, capsys):
+    spy_run_script.set_rc(lambda n: 3 if n == 2 else 0)  # 2日目で失敗
+    rc = _cloner(freeze_today, MONDAY, [2, 1])
+    assert rc == 3
+    assert len(spy_run_script.calls) == 2               # 3日目以降は実行しない
+    assert "中断しました" in capsys.readouterr().out
+
+
+def test_cloner_continues_past_error_with_yes(freeze_today, spy_run_script):
+    spy_run_script.set_rc(lambda n: 3 if n == 2 else 0)
+    rc = _cloner(freeze_today, MONDAY, [2, 1], assume_yes=True)
+    assert rc == 3                                      # 失敗は結果に残る
+    assert len(spy_run_script.calls) == 5               # 最後まで実行する
+
+
+@pytest.mark.parametrize("presets", [[0], [2, 0]])
+def test_cloner_cancel_runs_nothing(freeze_today, spy_run_script, presets):
+    assert _cloner(freeze_today, MONDAY, presets) is None
+    assert spy_run_script.calls == []
+
+
+# ================================================================
+# ハンドラ: 各ツールに渡す引数
+# ================================================================
+
+@pytest.mark.parametrize("choice, expected", [
+    (1, ["--from", "2026-08-22", "--to", "2026-08-28"]),   # 今週（土〜金）
+    (2, ["--from", "2026-08-15", "--to", "2026-08-21"]),   # 先週
+])
+def test_backlog_report_passes_week_range(freeze_today, spy_run_script,
+                                          choice, expected):
+    freeze_today(MONDAY)
+    menu.set_batch_mode([choice])
+    assert menu.run_backlog_report() == 0
+    assert spy_run_script.calls[0]["tool"] == "backlog_report"
+    assert spy_run_script.calls[0]["args"] == expected
+
+
+def test_backlog_report_manual_input_is_blocked_in_batch(freeze_today,
+                                                         spy_run_script):
+    freeze_today(MONDAY)
+    menu.set_batch_mode([5])                    # 5 = 日付を手動入力
+    with pytest.raises(menu.BatchInputRequired):
+        menu.run_backlog_report()
+    assert spy_run_script.calls == []
+
+
+@pytest.mark.parametrize("choice, expected", [
+    (1, []),
+    (2, ["--preview"]),
+])
+def test_excel_to_backlog_passes_mode(spy_run_script, choice, expected):
+    menu.set_batch_mode([choice])
+    assert menu.run_excel_to_backlog() == 0
+    assert spy_run_script.calls[0]["args"] == expected
+
+
+def test_excel_to_backlog_execute_requires_yes(spy_run_script):
+    menu.set_batch_mode([3])
+    with pytest.raises(menu.BatchInputRequired, match="--yes"):
+        menu.run_excel_to_backlog()
+    assert spy_run_script.calls == []
+
+
+def test_excel_to_backlog_execute_with_yes(spy_run_script):
+    menu.set_batch_mode([3], assume_yes=True)
+    assert menu.run_excel_to_backlog() == 0
+    assert spy_run_script.calls[0]["args"] == ["--execute"]
+
+
+def test_excel_to_backlog_declined_runs_nothing(monkeypatch, spy_run_script,
+                                                capsys):
+    monkeypatch.setattr(menu, "print_menu", lambda *a, **kw: 3)
+    monkeypatch.setattr(menu, "ask_yes_no", lambda *a, **kw: False)
+    monkeypatch.setattr(menu, "wait_enter", lambda: None)
+    assert menu.run_excel_to_backlog() is None
+    assert spy_run_script.calls == []
+    assert "キャンセルしました" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("choice, expected", [
+    (1, []),
+    (2, ["--dry-run"]),
+    (3, ["-v"]),
+])
+def test_filelist_passes_mode(spy_run_script, choice, expected):
+    menu.set_batch_mode([choice])
+    assert menu.run_filelist() == 0
+    assert spy_run_script.calls[0]["tool"] == "filelist"
+    assert spy_run_script.calls[0]["args"] == expected
+
+
+@pytest.mark.parametrize("choice, expected", [
+    (1, []),
+    (2, ["--verbose"]),
+])
+def test_file_sync_checker_passes_mode(spy_run_script, choice, expected):
+    menu.set_batch_mode([choice])
+    assert menu.run_file_sync_checker() == 0
+    assert spy_run_script.calls[0]["tool"] == "file_sync_checker"
+    assert spy_run_script.calls[0]["args"] == expected
+
+
+def test_docgrep_delegates_to_its_own_menu(spy_run_script):
+    assert menu.run_docgrep() == 0
+    assert spy_run_script.calls == [{"tool": "docgrep", "script": "menu.py",
+                                     "args": [], "wait": True}]
+
+
+@pytest.mark.parametrize("handler", [
+    menu.run_backlog_report,
+    menu.run_excel_to_backlog,
+    menu.run_file_sync_checker,
+    menu.run_filelist,
+])
+def test_handlers_return_none_and_run_nothing_when_cancelled(spy_run_script,
+                                                             handler):
+    menu.set_batch_mode([0])
+    assert handler() is None
+    assert spy_run_script.calls == []
+
+
+# ================================================================
 # 実行ログ
 # ================================================================
 

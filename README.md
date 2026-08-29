@@ -197,11 +197,15 @@ rc = run_script(tool_dir_name, script_name, args=None, wait=True)
 ## テスト
 
 ```bash
-.venv/bin/pytest        # Windows: .venv\Scripts\pytest
+.venv/bin/pytest                              # Windows: .venv\Scripts\pytest
+.venv/bin/pytest --cov=menu --cov-report=term-missing   # カバレッジ計測
 ```
 
-日付ロジック（土〜金／月〜金の週計算、当日以前スキップ）、`run_script` の
-未配置ガード、インタプリタ選択、CLI 引数の扱いを検証します。
+日付ロジック、バッチ実行の制御と安全弁、各ハンドラがツールへ渡す引数、
+`run_script` のガード、履歴・実行ログ、`tools.yaml` の読み込みを検証します。
+
+`subprocess` の実行部と対話ループ（`main` / `_input_date`）は
+副作用が大きいため対象外にしています。
 
 ## 終了コード
 
