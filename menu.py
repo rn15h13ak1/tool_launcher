@@ -272,11 +272,25 @@ def run_backlog_issue_cloner():
 
     execute = (mode_choice == 2)
 
-    print()
     dates = [start + timedelta(days=i) for i in range(5)]
     weekday_names = ["月", "火", "水", "木", "金"]
 
     today = date.today()
+    # 今週かつ当日以前はスキップ対象
+    targets = [d for d in dates if not (weeks_offset == 0 and d <= today)]
+
+    # 金・土・日に「今週」を選ぶと対象が 0 件になる。
+    # そのまま進むと 1 件も登録していないのに「完了しました」と出てしまうため、
+    # ここで明示的に知らせて中断する。
+    if not targets:
+        print()
+        print("  ※ 登録対象の日付がありません。")
+        print(f"     今週（月 {dates[0]} 〜 金 {dates[-1]}）は当日以前のみのため、")
+        print("     すべてスキップされます。翌週分を登録する場合は「来週」を選択してください。")
+        wait_enter()
+        return
+
+    print()
     for d in dates:
         date_str = d.strftime("%Y%m%d")
 
@@ -285,8 +299,7 @@ def run_backlog_issue_cloner():
         print(f"  [{weekday_names[d.weekday()]}] {d}  ({date_str})")
         hr("-")
 
-        # 今週かつ当日以前はスキップ
-        if weeks_offset == 0 and d <= today:
+        if d not in targets:
             print("  スキップ（当日以前）")
             continue
 
