@@ -67,7 +67,23 @@ def run_script(tool_dir_name: str, script_name: str, args: list = None, wait: bo
     戻り値: 終了コード（int）
     """
     cwd = TOOLS_ROOT / tool_dir_name
+    script = cwd / script_name
     args = args or []
+
+    # ツール本体が無い場合、subprocess が FileNotFoundError で落ちて
+    # ランチャーごと終了してしまうため、事前に確認してメニューに戻す。
+    if not cwd.is_dir():
+        print(f"\n  ※ ツールが見つかりません: {cwd}")
+        print(f"     {TOOLS_ROOT} 配下に {tool_dir_name} を配置してください。")
+        if wait:
+            wait_enter()
+        return 127
+    if not script.is_file():
+        print(f"\n  ※ スクリプトが見つかりません: {script}")
+        if wait:
+            wait_enter()
+        return 127
+
     cmd = [sys.executable, script_name] + args
 
     print()
