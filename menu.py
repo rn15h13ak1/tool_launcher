@@ -351,42 +351,62 @@ def run_docgrep():
 #
 # 書き方:
 #   {
-#       "label":   "メニューに表示する名前",
-#       "handler": run_your_tool,   # 上で定義したハンドラ関数
+#       "label":    "メニューに表示する名前",
+#       "handler":  run_your_tool,   # 上で定義したハンドラ関数
+#       "tool_dir": "ツールのディレクトリ名",  # TOOLS_ROOT からの相対
 #   },
 # ================================================================
 
 COMMANDS = [
     {
-        "label":   "Backlog 週次レポート生成",
-        "handler": run_backlog_report,
+        "label":    "Backlog 週次レポート生成",
+        "handler":  run_backlog_report,
+        "tool_dir": "backlog_report",
     },
     {
-        "label":   "Excel → Backlog 課題登録",
-        "handler": run_excel_to_backlog,
+        "label":    "Excel → Backlog 課題登録",
+        "handler":  run_excel_to_backlog,
+        "tool_dir": "excel_to_backlog",
     },
     {
-        "label":   "Backlog 課題クローン（週次登録）",
-        "handler": run_backlog_issue_cloner,
+        "label":    "Backlog 課題クローン（週次登録）",
+        "handler":  run_backlog_issue_cloner,
+        "tool_dir": "backlog_issue_cloner",
     },
     {
-        "label":   "ファイル同期チェック",
-        "handler": run_file_sync_checker,
+        "label":    "ファイル同期チェック",
+        "handler":  run_file_sync_checker,
+        "tool_dir": "file_sync_checker",
     },
     {
-        "label":   "ファイルリスト生成",
-        "handler": run_filelist,
+        "label":    "ファイルリスト生成",
+        "handler":  run_filelist,
+        "tool_dir": "filelist",
     },
     {
-        "label":   "docgrep（ファイル全文検索）",
-        "handler": run_docgrep,
+        "label":    "docgrep（ファイル全文検索）",
+        "handler":  run_docgrep,
+        "tool_dir": "docgrep",
     },
     # ── 新しいコマンドをここに追加 ──────────────────────────────────
     # {
-    #     "label":   "新しいツール名",
-    #     "handler": run_new_tool,
+    #     "label":    "新しいツール名",
+    #     "handler":  run_new_tool,
+    #     "tool_dir": "new_tool",
     # },
 ]
+
+
+def menu_labels() -> list:
+    """メニュー表示用ラベル。未配置のツールには印を付ける。"""
+    labels = []
+    for cmd in COMMANDS:
+        tool_dir = cmd.get("tool_dir")
+        if tool_dir and not (TOOLS_ROOT / tool_dir).is_dir():
+            labels.append(f"{cmd['label']}  ※未配置")
+        else:
+            labels.append(cmd["label"])
+    return labels
 
 
 # ================================================================
@@ -394,11 +414,9 @@ COMMANDS = [
 # ================================================================
 
 def main():
-    labels = [cmd["label"] for cmd in COMMANDS]
-
     while True:
         try:
-            choice = print_menu("ツールメニュー", labels, back_label="終了")
+            choice = print_menu("ツールメニュー", menu_labels(), back_label="終了")
             if choice == 0:
                 print("\n  終了します。\n")
                 break
