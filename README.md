@@ -117,7 +117,12 @@ VSCode では `F5`（`.vscode/launch.json` に設定済み）でも起動でき�
 ```
 ws/
 ├── tool_launcher/
-│   ├── menu.py          ← このランチャー
+│   ├── menu.py               ← このランチャー
+│   ├── tools.sample.yaml     tools.yaml のひな形
+│   ├── requirements.txt      PyYAML（tools.yaml 用）
+│   ├── requirements-dev.txt  pytest / pytest-cov
+│   ├── pytest.ini
+│   ├── tests/
 │   └── .vscode/launch.json
 ├── backlog_report/
 ├── excel_to_backlog/
@@ -227,12 +232,20 @@ rc = run_script(tool_dir_name, script_name, args=None, wait=True)
 
 ## 終了コード
 
+直接起動・無人実行では、**ツールが返した終了コードがそのまま返ります**。
+ランチャー自身が返すのは次のコードです。
+
 | コード | 意味 |
 |---|---|
-| 0 | 正常終了 |
-| 1 | 直接起動時に標準入力が閉じられた |
-| 2 | 直接起動時の引数が不正 |
-| 130 | 直接起動時に Ctrl+C で中断 |
+| 0 | 正常終了（メニューを終了した / ツールが 0 を返した） |
+| 1 | 標準入力が閉じられた（対話の途中で EOF） |
+| 2 | 引数が不正、または無人実行に必要な指定が足りない（`--yes` 不足・選択の過不足） |
+| 127 | ツールのディレクトリまたはスクリプトが見つからない |
+| 130 | Ctrl+C で中断 |
+| その他 | 実行したツールの終了コード |
+
+終了コード 2 は「ランチャーの使い方の誤り」と「ツールが 2 を返した」の
+どちらもあり得ます。区別が必要な場合は出力メッセージを確認してください。
 
 メニュー操作中の `Ctrl+C` は実行中のツールを中断してメニューに戻ります
 （ランチャー自体は終了しません）。

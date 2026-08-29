@@ -25,3 +25,8 @@ Thumbs.db
 
 # ローカル固有の追加ツール定義（tools.sample.yaml をコピーして使う）
 tools.yaml
+
+# カバレッジ計測の成果物
+.coverage
+coverage.json
+htmlcov/
