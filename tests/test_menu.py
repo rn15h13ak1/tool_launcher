@@ -20,6 +20,14 @@ SATURDAY = date(2026, 8, 29)
 SUNDAY = date(2026, 8, 30)
 
 
+def handler_for(label_part: str):
+    """ラベルの一部から COMMANDS のハンドラを取り出す。"""
+    for cmd in menu.COMMANDS:
+        if label_part in cmd["label"]:
+            return cmd["handler"]
+    raise AssertionError(f"ツールが見つかりません: {label_part}")
+
+
 @pytest.fixture(autouse=True)
 def reset_batch_mode():
     """テスト間でバッチ実行の状態を持ち越さない。"""
@@ -201,6 +209,25 @@ def test_every_command_has_required_keys():
         assert cmd["tool_dir"]
 
 
+def test_declarative_commands_get_a_generated_handler():
+    """handler を書いていないエントリにもハンドラが補われること。"""
+    declarative = [c for c in menu.COMMANDS if "options" in c or "script" in c]
+    assert declarative, "宣言的に定義されたツールが無い"
+    assert all(callable(c["handler"]) for c in declarative)
+
+
+def test_menu_order_is_stable():
+    """メニュー番号は運用に影響するため固定する。"""
+    assert [c["tool_dir"] for c in menu.COMMANDS] == [
+        "backlog_report",
+        "excel_to_backlog",
+        "backlog_issue_cloner",
+        "file_sync_checker",
+        "filelist",
+        "docgrep",
+    ]
+
+
 def test_menu_labels_marks_missing_tools(monkeypatch, tmp_path):
     monkeypatch.setattr(menu, "TOOLS_ROOT", tmp_path)
     assert all("※未配置" in label for label in menu.menu_labels())
@@ -349,6 +376,44 @@ tools:
     extra = menu.load_yaml_commands()
     assert [c["label"] for c in extra] == ["正しいツール"]
     assert "label と tool_dir が必要です" in capsys.readouterr().out
+
+
+def test_tools_yaml_option_can_require_confirmation(monkeypatch, tmp_path,
+                                                    spy_run_script):
+    """組み込みツールと同じ確認プロンプトを tools.yaml でも使えること。"""
+    _write_tools_yaml(monkeypatch, tmp_path, """
+tools:
+  - label: "危険ツール"
+    tool_dir: "danger_tool"
+    script: "run.py"
+    options:
+      - {label: "ドライラン", args: ["--dry-run"]}
+      - {label: "実行", args: ["--execute"], confirm: "本当に実行しますか？"}
+""")
+    handler = menu.load_yaml_commands()[0]["handler"]
+
+    menu.set_batch_mode([2])                      # 確認付きの選択肢
+    with pytest.raises(menu.BatchInputRequired, match="--yes"):
+        handler()
+    assert spy_run_script.calls == []
+
+    menu.set_batch_mode([2], assume_yes=True)
+    assert handler() == 0
+    assert spy_run_script.calls[0]["args"] == ["--execute"]
+
+
+def test_tools_yaml_option_without_confirm_runs_directly(monkeypatch, tmp_path,
+                                                         spy_run_script):
+    _write_tools_yaml(monkeypatch, tmp_path, """
+tools:
+  - label: "普通ツール"
+    tool_dir: "plain_tool"
+    options:
+      - {label: "ドライラン", args: ["--dry-run"]}
+""")
+    menu.set_batch_mode([1])
+    assert menu.load_yaml_commands()[0]["handler"]() == 0
+    assert spy_run_script.calls[0]["args"] == ["--dry-run"]
 
 
 def test_broken_tools_yaml_does_not_raise(monkeypatch, tmp_path, capsys):
@@ -580,20 +645,20 @@ def test_backlog_report_manual_input_is_blocked_in_batch(freeze_today,
 ])
 def test_excel_to_backlog_passes_mode(spy_run_script, choice, expected):
     menu.set_batch_mode([choice])
-    assert menu.run_excel_to_backlog() == 0
+    assert handler_for("Excel")() == 0
     assert spy_run_script.calls[0]["args"] == expected
 
 
 def test_excel_to_backlog_execute_requires_yes(spy_run_script):
     menu.set_batch_mode([3])
     with pytest.raises(menu.BatchInputRequired, match="--yes"):
-        menu.run_excel_to_backlog()
+        handler_for("Excel")()
     assert spy_run_script.calls == []
 
 
 def test_excel_to_backlog_execute_with_yes(spy_run_script):
     menu.set_batch_mode([3], assume_yes=True)
-    assert menu.run_excel_to_backlog() == 0
+    assert handler_for("Excel")() == 0
     assert spy_run_script.calls[0]["args"] == ["--execute"]
 
 
@@ -602,7 +667,7 @@ def test_excel_to_backlog_declined_runs_nothing(monkeypatch, spy_run_script,
     monkeypatch.setattr(menu, "print_menu", lambda *a, **kw: 3)
     monkeypatch.setattr(menu, "ask_yes_no", lambda *a, **kw: False)
     monkeypatch.setattr(menu, "wait_enter", lambda: None)
-    assert menu.run_excel_to_backlog() is None
+    assert handler_for("Excel")() is None
     assert spy_run_script.calls == []
     assert "キャンセルしました" in capsys.readouterr().out
 
@@ -614,7 +679,7 @@ def test_excel_to_backlog_declined_runs_nothing(monkeypatch, spy_run_script,
 ])
 def test_filelist_passes_mode(spy_run_script, choice, expected):
     menu.set_batch_mode([choice])
-    assert menu.run_filelist() == 0
+    assert handler_for("ファイルリスト")() == 0
     assert spy_run_script.calls[0]["tool"] == "filelist"
     assert spy_run_script.calls[0]["args"] == expected
 
@@ -625,27 +690,24 @@ def test_filelist_passes_mode(spy_run_script, choice, expected):
 ])
 def test_file_sync_checker_passes_mode(spy_run_script, choice, expected):
     menu.set_batch_mode([choice])
-    assert menu.run_file_sync_checker() == 0
+    assert handler_for("ファイル同期")() == 0
     assert spy_run_script.calls[0]["tool"] == "file_sync_checker"
     assert spy_run_script.calls[0]["args"] == expected
 
 
 def test_docgrep_delegates_to_its_own_menu(spy_run_script):
-    assert menu.run_docgrep() == 0
+    assert handler_for("docgrep")() == 0
     assert spy_run_script.calls == [{"tool": "docgrep", "script": "menu.py",
                                      "args": [], "wait": True}]
 
 
-@pytest.mark.parametrize("handler", [
-    menu.run_backlog_report,
-    menu.run_excel_to_backlog,
-    menu.run_file_sync_checker,
-    menu.run_filelist,
+@pytest.mark.parametrize("label", [
+    "Backlog 週次レポート", "Excel", "ファイル同期", "ファイルリスト",
 ])
 def test_handlers_return_none_and_run_nothing_when_cancelled(spy_run_script,
-                                                             handler):
+                                                             label):
     menu.set_batch_mode([0])
-    assert handler() is None
+    assert handler_for(label)() is None
     assert spy_run_script.calls == []
 
 

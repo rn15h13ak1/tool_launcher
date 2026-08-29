@@ -132,33 +132,50 @@ ws/
 
 ## 新しいツールを追加する
 
-1. ハンドラ関数を定義する
-2. `COMMANDS` リストにエントリを追加する
+「選択肢を選んで引数付きで実行するだけ」のツールは、**ハンドラを書かずに**
+`COMMANDS` へ宣言を追加するだけで済みます。
 
 ```python
-def run_new_tool():
-    """新しいツール"""
-    options = ["通常実行", "詳細ログ付き実行"]
-    choice = print_menu("新しいツール", options)
-    if choice == 0:
-        return
-    args = ["-v"] if choice == 2 else []
-    run_script("new_tool", "main.py", args)
-
-
 COMMANDS = [
     ...
     {
         "label":    "新しいツール名",
-        "handler":  run_new_tool,
-        "tool_dir": "new_tool",     # 未配置チェックに使用
+        "tool_dir": "new_tool",        # 未配置チェックにも使う
+        "script":   "main.py",         # 省略時 main.py
+        "options": [                   # 省略時は引数なしで即実行
+            {"label": "通常実行", "args": []},
+            {"label": "詳細ログ付き実行", "args": ["-v"]},
+            # 取り消せない操作には confirm を付ける
+            {"label": "実行", "args": ["--execute"],
+             "confirm": "実際に書き込みます。よろしいですか？"},
+        ],
     },
+]
+```
+
+`confirm` を付けた選択肢は実行前に y/N を確認し、**無人実行では `--yes` が無いと
+実行されません**。
+
+日付選択のように独自の操作が必要な場合だけ、ハンドラ関数を書いて `handler`
+に渡します（`Backlog 週次レポート生成` と `Backlog 課題クローン` がこの形です）。
+
+```python
+def run_new_tool():
+    """新しいツール"""
+    ...
+    return run_script("new_tool", "main.py", args)   # 終了コードを返す
+    # キャンセル時は None を返す
+
+COMMANDS = [
+    ...
+    {"label": "新しいツール名", "handler": run_new_tool, "tool_dir": "new_tool"},
 ]
 ```
 
 ### `tools.yaml` で追加する（Python を書かない方法）
 
-「引数を選んで実行するだけ」の単純なツールなら、`menu.py` を編集せずに追加できます。
+`menu.py` を編集せずに、同じ宣言を YAML で書けます。組み込みツールと**同じ仕組み**
+で動くため、`confirm` も使えます。
 
 ```bash
 cp tools.sample.yaml tools.yaml
@@ -172,11 +189,12 @@ tools:
     options:                 # 省略時は引数なしで即実行
       - {label: "通常実行", args: []}
       - {label: "詳細ログ", args: ["-v"]}
+      - {label: "実行", args: ["--execute"],
+         confirm: "実際に書き込みます。よろしいですか？"}
 ```
 
 `tools.yaml` は起動のたびに読み直されるため、メニューを開いたまま編集しても
-次の表示から反映されます。日付選択のような複雑な操作が必要な場合は
-`menu.py` にハンドラを書いてください。
+次の表示から反映されます。
 
 ### `run_script()` の使い方
 

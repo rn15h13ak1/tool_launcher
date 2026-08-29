@@ -302,41 +302,18 @@ def _input_date(prompt: str) -> str:
             print("  ※ YYYY-MM-DD 形式で入力してください。")
 
 
-# ================================================================
-# ── ハンドラ: Excel → Backlog ───────────────────────────────────
-# ================================================================
-
-def run_excel_to_backlog():
-    """Excel → Backlog 課題登録"""
-    options = [
-        "ドライラン（変換結果確認のみ・デフォルト）",
-        "プレビュー（Markdown ファイルに出力）",
-        "実行（Backlog に実際に登録・更新）",
-    ]
-    choice = print_menu("Excel → Backlog 課題登録", options)
-    if choice == 0:
-        return None
-
-    if choice == 1:
-        return run_script("excel_to_backlog", "excel_to_backlog.py")
-    if choice == 2:
-        return run_script("excel_to_backlog", "excel_to_backlog.py", ["--preview"])
-
-    print()
-    if not ask_yes_no("Backlog に実際に登録・更新します。よろしいですか？"):
-        print("  キャンセルしました。")
-        wait_enter()
-        return None
-    return run_script("excel_to_backlog", "excel_to_backlog.py", ["--execute"])
 
 
 # ================================================================
 # ── ハンドラ: Backlog 課題クローン（週次登録） ──────────────────
 # ================================================================
 
+CLONER_WEEK_PRESET_COUNT = 3   # 今週・来週・再来週
+
+
 def run_backlog_issue_cloner():
     """Backlog 課題クローン（週次登録）- 月〜金の5日分を順次実行"""
-    week_items = [week_label_mon_fri(i) for i in range(3)]
+    week_items = [week_label_mon_fri(i) for i in range(CLONER_WEEK_PRESET_COUNT)]
     week_choice = print_menu("Backlog 課題クローン - 週を選択", week_items)
     if week_choice == 0:
         return None
@@ -420,53 +397,49 @@ def run_backlog_issue_cloner():
     return worst_rc
 
 
-# ================================================================
-# ── ハンドラ: ファイル同期チェック ─────────────────────────────
-# ================================================================
 
-def run_file_sync_checker():
-    """ファイル同期チェック - 拠点間のファイル差分を検出してレポート生成"""
-    options = [
-        "通常実行",
-        "詳細ログ付き実行（--verbose）",
-    ]
-    choice = print_menu("ファイル同期チェック", options)
-    if choice == 0:
-        return None
 
-    args = []
-    if choice == 2:
-        args.append("--verbose")
 
-    return run_script("file_sync_checker", "main.py", args)
+
 
 
 # ================================================================
-# ── ハンドラ: ファイルリスト生成 ────────────────────────────────
+# ツール定義からハンドラを作る
 # ================================================================
 
-def run_filelist():
-    """ファイルリスト生成 - 指定パス配下を走査して自己完結 HTML を生成"""
-    options = [
-        "通常実行",
-        "ドライラン（設定検証のみ）",
-        "詳細ログ付き実行（--verbose）",
-    ]
-    choice = print_menu("ファイルリスト生成", options)
-    if choice == 0:
-        return None
+def make_tool_handler(entry: dict):
+    """
+    ツール定義（label / tool_dir / script / options）からハンドラを作る。
+    「選択肢を選んで引数付きで実行するだけ」のツールはこれで賄える。
+    組み込みツールと tools.yaml のツールで同じ仕組みを使う。
+    """
+    label    = entry["label"]
+    tool_dir = entry["tool_dir"]
+    script   = entry.get("script", "main.py")
+    options  = entry.get("options") or []
 
-    args = {1: [], 2: ["--dry-run"], 3: ["-v"]}[choice]
-    return run_script("filelist", "filelist.py", args)
+    def handler():
+        # 選択肢が無いツールはそのまま実行する
+        if not options:
+            return run_script(tool_dir, script)
 
+        choice = print_menu(label, [o["label"] for o in options])
+        if choice == 0:
+            return None
 
-# ================================================================
-# ── ハンドラ: docgrep（ファイル全文検索）─────────────────────────
-# ================================================================
+        option = options[choice - 1]
+        confirm = option.get("confirm")
+        if confirm:
+            print()
+            if not ask_yes_no(confirm):
+                print("  キャンセルしました。")
+                wait_enter()
+                return None
 
-def run_docgrep():
-    """docgrep - 対話メニューを起動（docgrep/menu.py に委譲）"""
-    return run_script("docgrep", "menu.py")
+        return run_script(tool_dir, script, list(option.get("args") or []))
+
+    handler.__doc__ = label
+    return handler
 
 
 # ================================================================
@@ -474,11 +447,23 @@ def run_docgrep():
 # ================================================================
 # 新しいツールを追加するときは、ここにエントリを追加するだけです。
 #
-# 書き方:
+# 選択肢を選んで実行するだけのツール:
 #   {
 #       "label":    "メニューに表示する名前",
-#       "handler":  run_your_tool,   # 上で定義したハンドラ関数
-#       "tool_dir": "ツールのディレクトリ名",  # TOOLS_ROOT からの相対
+#       "tool_dir": "ツールのディレクトリ名",   # TOOLS_ROOT からの相対
+#       "script":   "main.py",                 # 省略時 main.py
+#       "options": [                           # 省略時は引数なしで即実行
+#           {"label": "通常実行", "args": []},
+#           {"label": "実行", "args": ["--execute"],
+#            "confirm": "本当に実行しますか？"},   # 確認したい選択肢に付ける
+#       ],
+#   },
+#
+# 日付選択など独自の操作が要るツール:
+#   {
+#       "label":    "メニューに表示する名前",
+#       "handler":  run_your_tool,             # 自分で書いたハンドラ関数
+#       "tool_dir": "ツールのディレクトリ名",
 #   },
 # ================================================================
 
@@ -490,8 +475,14 @@ COMMANDS = [
     },
     {
         "label":    "Excel → Backlog 課題登録",
-        "handler":  run_excel_to_backlog,
         "tool_dir": "excel_to_backlog",
+        "script":   "excel_to_backlog.py",
+        "options": [
+            {"label": "ドライラン（変換結果確認のみ・デフォルト）", "args": []},
+            {"label": "プレビュー（Markdown ファイルに出力）", "args": ["--preview"]},
+            {"label": "実行（Backlog に実際に登録・更新）", "args": ["--execute"],
+             "confirm": "Backlog に実際に登録・更新します。よろしいですか？"},
+        ],
     },
     {
         "label":    "Backlog 課題クローン（週次登録）",
@@ -500,26 +491,34 @@ COMMANDS = [
     },
     {
         "label":    "ファイル同期チェック",
-        "handler":  run_file_sync_checker,
         "tool_dir": "file_sync_checker",
+        "script":   "main.py",
+        "options": [
+            {"label": "通常実行", "args": []},
+            {"label": "詳細ログ付き実行（--verbose）", "args": ["--verbose"]},
+        ],
     },
     {
         "label":    "ファイルリスト生成",
-        "handler":  run_filelist,
         "tool_dir": "filelist",
+        "script":   "filelist.py",
+        "options": [
+            {"label": "通常実行", "args": []},
+            {"label": "ドライラン（設定検証のみ）", "args": ["--dry-run"]},
+            {"label": "詳細ログ付き実行（--verbose）", "args": ["-v"]},
+        ],
     },
     {
         "label":    "docgrep（ファイル全文検索）",
-        "handler":  run_docgrep,
         "tool_dir": "docgrep",
+        "script":   "menu.py",          # docgrep 側の対話メニューに委譲する
     },
     # ── 新しいコマンドをここに追加 ──────────────────────────────────
-    # {
-    #     "label":    "新しいツール名",
-    #     "handler":  run_new_tool,
-    #     "tool_dir": "new_tool",
-    # },
 ]
+
+# 宣言だけのエントリにハンドラを補う
+for _entry in COMMANDS:
+    _entry.setdefault("handler", make_tool_handler(_entry))
 
 
 # ================================================================
@@ -535,29 +534,13 @@ COMMANDS = [
 #       options:                        # 省略時は引数なしで即実行
 #         - {label: "通常実行", args: []}
 #         - {label: "詳細ログ", args: ["-v"]}
+#         - {label: "実行", args: ["--execute"],
+#            confirm: "本当に実行しますか？"}   # 確認したい選択肢に付ける
+#
+# 組み込みツールと同じ make_tool_handler を使うので、挙動は完全に同じ。
 # ================================================================
 
 TOOLS_YAML = MENU_DIR / "tools.yaml"
-
-
-def _make_yaml_handler(entry: dict):
-    """tools.yaml の 1 エントリからハンドラ関数を作る。"""
-    label    = entry["label"]
-    tool_dir = entry["tool_dir"]
-    script   = entry.get("script", "main.py")
-    options  = entry.get("options") or []
-
-    def handler():
-        if not options:
-            return run_script(tool_dir, script)
-        choice = print_menu(label, [o["label"] for o in options])
-        if choice == 0:
-            return None
-        return run_script(tool_dir, script,
-                          list(options[choice - 1].get("args") or []))
-
-    handler.__doc__ = f"{label}（tools.yaml で定義）"
-    return handler
 
 
 def load_yaml_commands() -> list:
@@ -583,7 +566,7 @@ def load_yaml_commands() -> list:
             continue
         commands.append({
             "label":    entry["label"],
-            "handler":  _make_yaml_handler(entry),
+            "handler":  make_tool_handler(entry),
             "tool_dir": entry["tool_dir"],
         })
     return commands
