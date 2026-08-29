@@ -397,12 +397,21 @@ def main():
     labels = [cmd["label"] for cmd in COMMANDS]
 
     while True:
-        choice = print_menu("ツールメニュー", labels, back_label="終了")
-        if choice == 0:
-            print("\n  終了します。\n")
+        try:
+            choice = print_menu("ツールメニュー", labels, back_label="終了")
+            if choice == 0:
+                print("\n  終了します。\n")
+                break
+            COMMANDS[choice - 1]["handler"]()
+        except KeyboardInterrupt:
+            # 長時間実行のツールを Ctrl+C で止めてもメニューには戻れるようにする
+            print("\n\n  中断しました。メニューに戻ります。")
+        except EOFError:
+            # Ctrl+D / Ctrl+Z で標準入力が閉じられた場合
+            print("\n\n  入力が終了しました。終了します。\n")
             break
-        COMMANDS[choice - 1]["handler"]()
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
