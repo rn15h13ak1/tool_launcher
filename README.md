@@ -7,8 +7,26 @@
 ## 必要環境
 
 - Python 3.9 以上
-- 各ツール自身の依存ライブラリ（`PyYAML` / `openpyxl` / `tqdm` など）は、
-  このランチャーを動かす Python 環境にインストールしておく必要があります。
+- ランチャー自体は標準ライブラリのみで動作します。
+  `tools.yaml` でツールを追加する場合のみ PyYAML が必要です。
+
+```bash
+pip install -r requirements.txt        # tools.yaml を使う場合
+pip install -r requirements-dev.txt    # テストも実行する場合
+```
+
+### 各ツールの依存ライブラリ
+
+ツールのディレクトリに `.venv` があれば**その中の Python で実行**されるため、
+ランチャー側に依存を入れる必要はありません。`.venv` が無いツールは、
+ランチャーを動かしている Python で実行されます。
+
+```bash
+# .venv を用意する場合（例: file_sync_checker）
+cd ../file_sync_checker
+python -m venv .venv
+.venv/bin/pip install -r requirements.txt      # Windows: .venv\Scripts\pip
+```
 
 ## 起動
 
@@ -126,7 +144,7 @@ rc = run_script(tool_dir_name, script_name, args=None, wait=True)
 ## テスト
 
 ```bash
-pip install pytest
+pip install -r requirements-dev.txt
 pytest
 ```
 
