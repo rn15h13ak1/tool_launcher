@@ -461,6 +461,17 @@ def test_every_builtin_handler_returns_none_when_cancelled(monkeypatch):
         assert cmd["handler"]() is None, cmd["label"]
 
 
+@pytest.mark.parametrize("arg", ["--help", "--list", "7", "abc"])
+def test_tools_yaml_is_read_once_per_invocation(monkeypatch, history_file, arg):
+    """tools.yaml の読み込みが 1 回で済むこと。"""
+    calls = []
+    real = menu.load_yaml_commands
+    monkeypatch.setattr(menu, "load_yaml_commands",
+                        lambda: calls.append(1) or real())
+    menu.run_directly(arg)
+    assert len(calls) == 1
+
+
 @pytest.mark.parametrize("arg", ["-h", "--help", "-l", "--list"])
 def test_help_and_list_exit_zero(arg, capsys):
     assert menu.run_directly(arg) == 0

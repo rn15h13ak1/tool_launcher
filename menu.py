@@ -645,13 +645,13 @@ def default_choice(commands: list) -> int:
 # メインループ
 # ================================================================
 
-def print_tool_list(indent: str = "  ") -> None:
+def print_tool_list(indent: str = "  ", commands: list = None) -> None:
     """ツール番号とラベルの一覧を表示する。"""
-    for i, label in enumerate(menu_labels(), 1):
+    for i, label in enumerate(menu_labels(commands), 1):
         print(f"{indent}{i}. {label}")
 
 
-def print_help() -> None:
+def print_help(commands: list = None) -> None:
     print("Tool Launcher - メニュー形式のツール起動スクリプト")
     print()
     print("使い方:")
@@ -662,26 +662,29 @@ def print_help() -> None:
     print("  python menu.py --help     このヘルプを表示する")
     print()
     print("ツール一覧:")
-    print_tool_list()
+    print_tool_list(commands=commands)
 
 
 def run_directly(arg: str) -> int:
     """コマンドライン引数で指定された番号のツールを直接実行する。"""
-    if arg in ("-h", "--help"):
-        print_help()
-        return 0
-    if arg in ("-l", "--list"):
-        print_tool_list()
-        return 0
     if arg == "--log":
         print_run_log()
         return 0
 
+    # tools.yaml の読み込みは 1 回だけにして、以降は同じリストを使い回す
     commands = all_commands()
+
+    if arg in ("-h", "--help"):
+        print_help(commands)
+        return 0
+    if arg in ("-l", "--list"):
+        print_tool_list(commands=commands)
+        return 0
+
     if not arg.isdigit() or not (1 <= int(arg) <= len(commands)):
         print(f"  ※ 不正な番号です: {arg}")
         print(f"     1〜{len(commands)} の番号を指定してください:")
-        print_tool_list("       ")
+        print_tool_list("       ", commands)
         print("     ヘルプ: python menu.py --help")
         return 2
 
