@@ -10,9 +10,16 @@
 - ランチャー自体は標準ライブラリのみで動作します。
   `tools.yaml` でツールを追加する場合のみ PyYAML が必要です。
 
+### セットアップ（任意）
+
+`tools.yaml` を使う場合やテストを実行する場合は、仮想環境を用意します。
+Homebrew や OS 同梱の Python は PEP 668 で保護されており
+`pip install` が拒否される（`externally-managed-environment`）ため、
+仮想環境を作るのが確実です。
+
 ```bash
-pip install -r requirements.txt        # tools.yaml を使う場合
-pip install -r requirements-dev.txt    # テストも実行する場合
+python3 -m venv .venv
+.venv/bin/pip install -r requirements-dev.txt    # Windows: .venv\Scripts\pip
 ```
 
 ### 各ツールの依存ライブラリ
@@ -165,8 +172,7 @@ rc = run_script(tool_dir_name, script_name, args=None, wait=True)
 ## テスト
 
 ```bash
-pip install -r requirements-dev.txt
-pytest
+.venv/bin/pytest        # Windows: .venv\Scripts\pytest
 ```
 
 日付ロジック（土〜金／月〜金の週計算、当日以前スキップ）、`run_script` の
