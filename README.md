@@ -97,6 +97,16 @@ rc = run_script(tool_dir_name, script_name, args=None, wait=True)
 戻り値は子プロセスの終了コード。ツールやスクリプトが見つからない場合は
 `127` を返し、例外は投げません。
 
+## テスト
+
+```bash
+pip install pytest
+pytest
+```
+
+日付ロジック（土〜金／月〜金の週計算、当日以前スキップ）、`run_script` の
+未配置ガード、インタプリタ選択、CLI 引数の扱いを検証します。
+
 ## 終了コード
 
 | コード | 意味 |
