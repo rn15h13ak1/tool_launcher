@@ -213,20 +213,19 @@ def run_backlog_report():
 
     choice = print_menu("Backlog 週次レポート - 期間選択", preset_items)
     if choice == 0:
-        return
+        return None
 
     if 1 <= choice <= WEEK_PRESET_COUNT:
         start, end = get_sat_to_fri(choice - 1)
-        run_script("backlog_report", "backlog_weekly_report.py",
-                   ["--from", str(start), "--to", str(end)])
+        return run_script("backlog_report", "backlog_weekly_report.py",
+                          ["--from", str(start), "--to", str(end)])
 
-    elif choice == WEEK_PRESET_COUNT + 1:
-        # 手動入力
-        print()
-        from_str = _input_date("  FROM 日付 (YYYY-MM-DD): ")
-        to_str   = _input_date("  TO   日付 (YYYY-MM-DD): ")
-        run_script("backlog_report", "backlog_weekly_report.py",
-                   ["--from", from_str, "--to", to_str])
+    # 手動入力
+    print()
+    from_str = _input_date("  FROM 日付 (YYYY-MM-DD): ")
+    to_str   = _input_date("  TO   日付 (YYYY-MM-DD): ")
+    return run_script("backlog_report", "backlog_weekly_report.py",
+                      ["--from", from_str, "--to", to_str])
 
 
 def _input_date(prompt: str) -> str:
@@ -253,19 +252,19 @@ def run_excel_to_backlog():
     ]
     choice = print_menu("Excel → Backlog 課題登録", options)
     if choice == 0:
-        return
+        return None
 
     if choice == 1:
-        run_script("excel_to_backlog", "excel_to_backlog.py")
-    elif choice == 2:
-        run_script("excel_to_backlog", "excel_to_backlog.py", ["--preview"])
-    elif choice == 3:
-        print()
-        if ask_yes_no("Backlog に実際に登録・更新します。よろしいですか？"):
-            run_script("excel_to_backlog", "excel_to_backlog.py", ["--execute"])
-        else:
-            print("  キャンセルしました。")
-            wait_enter()
+        return run_script("excel_to_backlog", "excel_to_backlog.py")
+    if choice == 2:
+        return run_script("excel_to_backlog", "excel_to_backlog.py", ["--preview"])
+
+    print()
+    if not ask_yes_no("Backlog に実際に登録・更新します。よろしいですか？"):
+        print("  キャンセルしました。")
+        wait_enter()
+        return None
+    return run_script("excel_to_backlog", "excel_to_backlog.py", ["--execute"])
 
 
 # ================================================================
@@ -277,7 +276,7 @@ def run_backlog_issue_cloner():
     week_items = [week_label_mon_fri(i) for i in range(3)]
     week_choice = print_menu("Backlog 課題クローン - 週を選択", week_items)
     if week_choice == 0:
-        return
+        return None
 
     weeks_offset = week_choice - 1
     start, _ = get_mon_to_fri(weeks_offset)
@@ -288,7 +287,7 @@ def run_backlog_issue_cloner():
     ]
     mode_choice = print_menu("Backlog 課題クローン - 実行モード", mode_items)
     if mode_choice == 0:
-        return
+        return None
 
     execute = (mode_choice == 2)
 
@@ -308,9 +307,21 @@ def run_backlog_issue_cloner():
         print(f"     今週（月 {dates[0]} 〜 金 {dates[-1]}）は当日以前のみのため、")
         print("     すべてスキップされます。翌週分を登録する場合は「来週」を選択してください。")
         wait_enter()
-        return
+        return None
+
+    # Backlog を書き換えるのは複数日ぶんなので、対象を提示して一度確認する。
+    if execute:
+        print()
+        print(f"  {len(targets)} 件を Backlog に登録・更新します:")
+        for d in targets:
+            print(f"    {weekday_names[d.weekday()]} {d}")
+        if not ask_yes_no("よろしいですか？"):
+            print("  キャンセルしました。")
+            wait_enter()
+            return None
 
     print()
+    worst_rc = 0
     for d in dates:
         date_str = d.strftime("%Y%m%d")
 
@@ -331,15 +342,17 @@ def run_backlog_issue_cloner():
                         args, wait=False)
 
         if rc != 0:
+            worst_rc = rc
             if not ask_yes_no("続行しますか？"):
                 print("  中断しました。")
                 wait_enter()
-                return
+                return rc
 
     print()
     hr()
     print("  全日程の処理が完了しました。")
     wait_enter()
+    return worst_rc
 
 
 # ================================================================
@@ -354,13 +367,13 @@ def run_file_sync_checker():
     ]
     choice = print_menu("ファイル同期チェック", options)
     if choice == 0:
-        return
+        return None
 
     args = []
     if choice == 2:
         args.append("--verbose")
 
-    run_script("file_sync_checker", "main.py", args)
+    return run_script("file_sync_checker", "main.py", args)
 
 
 # ================================================================
@@ -376,14 +389,10 @@ def run_filelist():
     ]
     choice = print_menu("ファイルリスト生成", options)
     if choice == 0:
-        return
+        return None
 
-    if choice == 1:
-        run_script("filelist", "filelist.py")
-    elif choice == 2:
-        run_script("filelist", "filelist.py", ["--dry-run"])
-    elif choice == 3:
-        run_script("filelist", "filelist.py", ["-v"])
+    args = {1: [], 2: ["--dry-run"], 3: ["-v"]}[choice]
+    return run_script("filelist", "filelist.py", args)
 
 
 # ================================================================
@@ -392,7 +401,7 @@ def run_filelist():
 
 def run_docgrep():
     """docgrep - 対話メニューを起動（docgrep/menu.py に委譲）"""
-    run_script("docgrep", "menu.py")
+    return run_script("docgrep", "menu.py")
 
 
 # ================================================================
@@ -475,12 +484,12 @@ def _make_yaml_handler(entry: dict):
 
     def handler():
         if not options:
-            run_script(tool_dir, script)
-            return
+            return run_script(tool_dir, script)
         choice = print_menu(label, [o["label"] for o in options])
         if choice == 0:
-            return
-        run_script(tool_dir, script, list(options[choice - 1].get("args") or []))
+            return None
+        return run_script(tool_dir, script,
+                          list(options[choice - 1].get("args") or []))
 
     handler.__doc__ = f"{label}（tools.yaml で定義）"
     return handler
@@ -617,17 +626,21 @@ def run_directly(arg: str) -> int:
         return 2
 
     cmd = commands[int(arg) - 1]
-    save_last_label(cmd["label"])
     print(f"\n  直接実行: {cmd['label']}")
     try:
-        cmd["handler"]()
+        rc = cmd["handler"]()
     except KeyboardInterrupt:
         print("\n\n  中断しました。")
         return 130
     except EOFError:
         print("\n\n  入力が終了しました。")
         return 1
-    return 0
+
+    # ハンドラは実行したら終了コード、キャンセルなら None を返す
+    if rc is None:
+        return 0
+    save_last_label(cmd["label"])
+    return rc
 
 
 def main():
@@ -646,8 +659,10 @@ def main():
                 print("\n  終了します。\n")
                 break
             selected = commands[choice - 1]
-            save_last_label(selected["label"])
-            selected["handler"]()
+            # 実行した場合のみ「前回」として記録する
+            # （サブメニューで戻っただけのツールを既定にしない）
+            if selected["handler"]() is not None:
+                save_last_label(selected["label"])
         except KeyboardInterrupt:
             # 長時間実行のツールを Ctrl+C で止めてもメニューには戻れるようにする
             print("\n\n  中断しました。メニューに戻ります。")

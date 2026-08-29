@@ -349,6 +349,60 @@ def test_broken_tools_yaml_does_not_raise(monkeypatch, tmp_path, capsys):
     assert "読み込みに失敗" in capsys.readouterr().out
 
 
+# ================================================================
+# 終了コードの伝播と履歴の記録タイミング
+# ================================================================
+
+def _one_command(monkeypatch, rc):
+    """ハンドラが rc を返すだけのツールを 1 件だけ登録する。"""
+    monkeypatch.setattr(menu, "COMMANDS",
+                        [{"label": "テストツール",
+                          "handler": lambda: rc,
+                          "tool_dir": "test_tool"}])
+    monkeypatch.setattr(menu, "load_yaml_commands", lambda: [])
+
+
+@pytest.mark.parametrize("rc", [0, 1, 3, 130])
+def test_direct_launch_propagates_exit_code(monkeypatch, history_file, rc):
+    _one_command(monkeypatch, rc)
+    assert menu.run_directly("1") == rc
+
+
+def test_direct_launch_returns_zero_when_cancelled(monkeypatch, history_file):
+    _one_command(monkeypatch, None)
+    assert menu.run_directly("1") == 0
+
+
+def test_history_records_executed_tool(monkeypatch, history_file):
+    _one_command(monkeypatch, 0)
+    menu.run_directly("1")
+    assert menu.load_last_label() == "テストツール"
+
+
+def test_history_skips_cancelled_tool(monkeypatch, history_file):
+    _one_command(monkeypatch, None)
+    menu.run_directly("1")
+    assert menu.load_last_label() == ""
+
+
+def test_history_keeps_previous_entry_on_cancel(monkeypatch, history_file):
+    menu.save_last_label("前に実行したツール")
+    _one_command(monkeypatch, None)
+    menu.run_directly("1")
+    assert menu.load_last_label() == "前に実行したツール"
+
+
+def test_every_builtin_handler_returns_none_when_cancelled(monkeypatch):
+    """0（戻る）を選んだときは全ハンドラが None を返すこと。"""
+    monkeypatch.setattr(menu, "print_menu", lambda *a, **kw: 0)
+    monkeypatch.setattr(menu, "run_script",
+                        lambda *a, **kw: pytest.fail("キャンセル時に実行された"))
+    for cmd in menu.COMMANDS:
+        if cmd["label"].startswith("docgrep"):
+            continue          # サブメニューを持たず即実行するため対象外
+        assert cmd["handler"]() is None, cmd["label"]
+
+
 @pytest.mark.parametrize("arg", ["-h", "--help", "-l", "--list"])
 def test_help_and_list_exit_zero(arg, capsys):
     assert menu.run_directly(arg) == 0
