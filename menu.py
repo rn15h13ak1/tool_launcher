@@ -9,7 +9,6 @@ Windows コマンドプロンプトから各種ツールをメニュー形式で
   2. ファイル末尾の COMMANDS リストにエントリを追加する
 """
 
-import os
 import subprocess
 import sys
 from datetime import date, timedelta
@@ -151,7 +150,8 @@ def get_mon_to_fri(weeks_offset: int = 0):
 def week_label_mon_fri(weeks_offset: int) -> str:
     """メニュー表示用のラベルを生成する（月〜金）"""
     start, end = get_mon_to_fri(weeks_offset)
-    prefix = {0: "今週  ", 1: "来週  ", 2: "再来週"}.get(weeks_offset, f"{weeks_offset}週後")
+    # 全角スペースで幅を揃える（「今週」「来週」は2文字、「再来週」は3文字）
+    prefix = {0: "今週　", 1: "来週　", 2: "再来週"}.get(weeks_offset, f"{weeks_offset}週後")
     return f"{prefix}  月 {start}  〜  金 {end}"
 
 
