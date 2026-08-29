@@ -27,6 +27,25 @@ TOOLS_ROOT = MENU_DIR.parent                   # ws/
 
 WIDTH = 62
 
+# ── バッチ実行（無人実行）用の状態 ──────────────────────────────
+# コマンドラインでサブ選択を渡すと、その回答を先読みして使う。
+# 入力待ちが発生しないので cron やタスクスケジューラから起動できる。
+_PRESET_ANSWERS = []      # 例: python menu.py 3 2 1 → [2, 1]
+_BATCH_MODE = False       # サブ選択が与えられたら True
+_ASSUME_YES = False       # --yes 指定時のみ True
+
+
+class BatchInputRequired(Exception):
+    """バッチ実行中に、用意されていない入力を求められた。"""
+
+
+def set_batch_mode(answers: list = None, assume_yes: bool = False) -> None:
+    """バッチ実行の状態を設定する（answers が空ならバッチ実行しない）。"""
+    global _PRESET_ANSWERS, _BATCH_MODE, _ASSUME_YES
+    _PRESET_ANSWERS = list(answers or [])
+    _BATCH_MODE = bool(answers)
+    _ASSUME_YES = assume_yes
+
 
 def hr(char="="):
     print(char * WIDTH)
@@ -36,7 +55,24 @@ def print_menu(title, items, back_label="戻る", default=None):
     """
     メニューを表示して選択番号を返す。0 = 戻る / 終了
     default に番号を渡すと、空 Enter でその番号を選べる。
+    バッチ実行中はコマンドラインで指定された回答を順に使う。
     """
+    if _BATCH_MODE:
+        if not _PRESET_ANSWERS:
+            raise BatchInputRequired(
+                f"「{title}」の選択が指定されていません "
+                f"（1〜{len(items)}、0=戻る）"
+            )
+        choice = _PRESET_ANSWERS.pop(0)
+        if not (0 <= choice <= len(items)):
+            raise BatchInputRequired(
+                f"「{title}」の選択 {choice} は範囲外です "
+                f"（1〜{len(items)}、0=戻る）"
+            )
+        label = items[choice - 1] if choice else back_label
+        print(f"\n  {title} → {choice}. {label}")
+        return choice
+
     while True:
         print()
         hr()
@@ -60,8 +96,27 @@ def print_menu(title, items, back_label="戻る", default=None):
         print("  ※ 無効な入力です。もう一度入力してください。")
 
 
-def ask_yes_no(prompt: str, default: bool = False) -> bool:
-    """y/n の確認を取る。空 Enter は default を採用する。"""
+def ask_yes_no(prompt: str, default: bool = False,
+               batch_default: bool = None) -> bool:
+    """
+    y/n の確認を取る。空 Enter は default を採用する。
+
+    バッチ実行中の扱い:
+      --yes 指定時          → 常に yes
+      batch_default 指定時  → その値（エラー継続の可否など、破壊的でない確認）
+      それ以外              → エラー（Backlog への書き込みを黙って通さない）
+    """
+    if _BATCH_MODE:
+        if _ASSUME_YES:
+            print(f"  {prompt} → yes（--yes）")
+            return True
+        if batch_default is not None:
+            print(f"  {prompt} → {'yes' if batch_default else 'no'}（無人実行の既定）")
+            return batch_default
+        raise BatchInputRequired(
+            f"確認が必要です: {prompt}  → 実行するには --yes を指定してください"
+        )
+
     suffix = " [Y/n]" if default else " [y/N]"
     while True:
         answer = input(f"  {prompt}{suffix}: ").strip().lower()
@@ -75,6 +130,9 @@ def ask_yes_no(prompt: str, default: bool = False) -> bool:
 
 
 def wait_enter():
+    # バッチ実行では入力待ちしない（stdin が無い環境で止まらないようにする）
+    if _BATCH_MODE:
+        return
     input("\n  Enter キーでメニューに戻ります...")
 
 
@@ -231,6 +289,10 @@ def run_backlog_report():
 
 def _input_date(prompt: str) -> str:
     """YYYY-MM-DD 形式の日付を入力させる"""
+    if _BATCH_MODE:
+        raise BatchInputRequired(
+            "日付の手動入力はバッチ実行では使えません（週プリセットを選んでください）"
+        )
     while True:
         value = input(prompt).strip()
         try:
@@ -344,7 +406,9 @@ def run_backlog_issue_cloner():
 
         if rc != 0:
             worst_rc = rc
-            if not ask_yes_no("続行しますか？"):
+            # 無人実行ではエラーが出たら止める（破壊的操作の確認ではないので
+            # --yes は要求せず、既定で「中断」とする）
+            if not ask_yes_no("続行しますか？", batch_default=False):
                 print("  中断しました。")
                 wait_enter()
                 return rc
@@ -655,17 +719,43 @@ def print_help(commands: list = None) -> None:
     print("Tool Launcher - メニュー形式のツール起動スクリプト")
     print()
     print("使い方:")
-    print("  python menu.py            メニューを表示する")
-    print("  python menu.py <番号>     指定した番号のツールを直接起動する")
-    print("  python menu.py --list     ツール一覧を表示する")
-    print("  python menu.py --log      直近の実行ログを表示する")
-    print("  python menu.py --help     このヘルプを表示する")
+    print("  python menu.py                    メニューを表示する")
+    print("  python menu.py <番号>             指定した番号のツールを起動する")
+    print("  python menu.py <番号> <選択...>   サブメニューの選択も指定して")
+    print("                                    無人実行する（入力待ちなし）")
+    print("  python menu.py --list             ツール一覧を表示する")
+    print("  python menu.py --log              直近の実行ログを表示する")
+    print("  python menu.py --help             このヘルプを表示する")
+    print()
+    print("オプション:")
+    print("  --yes    無人実行時に確認プロンプトを自動承認する")
+    print("           （指定しないと確認箇所でエラー終了する）")
+    print()
+    print("例:")
+    print("  python menu.py 5 2         ファイルリスト生成をドライランで実行")
+    print("  python menu.py 3 2 1       課題クローン: 来週 → ドライラン")
+    print("  python menu.py 3 2 2 --yes 課題クローン: 来週 → 実行（確認を承認）")
     print()
     print("ツール一覧:")
     print_tool_list(commands=commands)
 
 
-def run_directly(arg: str) -> int:
+def parse_args(argv: list):
+    """
+    コマンドライン引数を (最初の引数, サブ選択リスト, --yes) に分解する。
+    """
+    assume_yes = "--yes" in argv
+    positional = [a for a in argv if a != "--yes"]
+    first = positional[0] if positional else None
+    presets = []
+    for a in positional[1:]:
+        if not a.isdigit():
+            return first, None, assume_yes      # None = 不正なサブ選択
+        presets.append(int(a))
+    return first, presets, assume_yes
+
+
+def run_directly(arg: str, presets: list = None, assume_yes: bool = False) -> int:
     """コマンドライン引数で指定された番号のツールを直接実行する。"""
     if arg == "--log":
         print_run_log()
@@ -689,15 +779,22 @@ def run_directly(arg: str) -> int:
         return 2
 
     cmd = commands[int(arg) - 1]
+    set_batch_mode(presets, assume_yes)
     print(f"\n  直接実行: {cmd['label']}")
     try:
         rc = cmd["handler"]()
+    except BatchInputRequired as e:
+        print(f"\n  ※ 無人実行できません: {e}")
+        print("     ヘルプ: python menu.py --help")
+        return 2
     except KeyboardInterrupt:
         print("\n\n  中断しました。")
         return 130
     except EOFError:
         print("\n\n  入力が終了しました。")
         return 1
+    finally:
+        set_batch_mode()          # 対話実行に戻す
 
     # ハンドラは実行したら終了コード、キャンセルなら None を返す
     if rc is None:
@@ -707,9 +804,16 @@ def run_directly(arg: str) -> int:
 
 
 def main():
-    # `python menu.py 6` のように番号を渡すと、そのツールを直接起動する
+    # `python menu.py 6` のように番号を渡すと、そのツールを直接起動する。
+    # さらにサブ選択を続けると入力待ちなしで無人実行する。
     if len(sys.argv) > 1:
-        return run_directly(sys.argv[1])
+        first, presets, assume_yes = parse_args(sys.argv[1:])
+        if presets is None:
+            print("  ※ サブメニューの選択は数字で指定してください。")
+            print("     例: python menu.py 3 2 1")
+            print("     ヘルプ: python menu.py --help")
+            return 2
+        return run_directly(first, presets, assume_yes)
 
     while True:
         try:

@@ -20,6 +20,14 @@ SATURDAY = date(2026, 8, 29)
 SUNDAY = date(2026, 8, 30)
 
 
+@pytest.fixture(autouse=True)
+def reset_batch_mode():
+    """テスト間でバッチ実行の状態を持ち越さない。"""
+    menu.set_batch_mode()
+    yield
+    menu.set_batch_mode()
+
+
 @pytest.fixture
 def freeze_today(monkeypatch):
     """menu.date.today() を固定する。"""
@@ -347,6 +355,107 @@ def test_broken_tools_yaml_does_not_raise(monkeypatch, tmp_path, capsys):
     _write_tools_yaml(monkeypatch, tmp_path, "tools: [unclosed\n")
     assert menu.load_yaml_commands() == []
     assert "読み込みに失敗" in capsys.readouterr().out
+
+
+# ================================================================
+# バッチ実行（無人実行）
+# ================================================================
+
+def test_parse_args_splits_tool_presets_and_yes():
+    assert menu.parse_args(["3", "2", "1"]) == ("3", [2, 1], False)
+    assert menu.parse_args(["3", "2", "--yes"]) == ("3", [2], True)
+    assert menu.parse_args(["--yes", "5"]) == ("5", [], True)
+    assert menu.parse_args(["5"]) == ("5", [], False)
+
+
+def test_parse_args_rejects_non_numeric_preset():
+    first, presets, _ = menu.parse_args(["5", "abc"])
+    assert first == "5" and presets is None
+
+
+def test_batch_mode_consumes_presets_in_order(capsys):
+    menu.set_batch_mode([2, 1])
+    assert menu.print_menu("週", ["今週", "来週", "再来週"]) == 2
+    assert menu.print_menu("モード", ["ドライラン", "実行"]) == 1
+    assert "週 → 2. 来週" in capsys.readouterr().out
+
+
+def test_batch_mode_accepts_zero_as_back():
+    menu.set_batch_mode([0])
+    assert menu.print_menu("週", ["今週", "来週"]) == 0
+
+
+def test_batch_mode_errors_when_presets_run_out():
+    menu.set_batch_mode([1])
+    menu.print_menu("1つ目", ["A", "B"])
+    with pytest.raises(menu.BatchInputRequired, match="選択が指定されていません"):
+        menu.print_menu("2つ目", ["A", "B"])
+
+
+def test_batch_mode_errors_on_out_of_range_preset():
+    menu.set_batch_mode([9])
+    with pytest.raises(menu.BatchInputRequired, match="範囲外"):
+        menu.print_menu("週", ["今週", "来週"])
+
+
+def test_batch_mode_never_calls_input(monkeypatch):
+    monkeypatch.setattr("builtins.input",
+                        lambda *a: pytest.fail("バッチ実行で入力を求めた"))
+    menu.set_batch_mode([1])
+    menu.print_menu("週", ["今週"])
+    menu.wait_enter()
+
+
+def test_batch_confirmation_requires_yes_flag():
+    menu.set_batch_mode([1])
+    with pytest.raises(menu.BatchInputRequired, match="--yes"):
+        menu.ask_yes_no("Backlog に登録します。よろしいですか？")
+
+
+def test_batch_confirmation_passes_with_yes_flag():
+    menu.set_batch_mode([1], assume_yes=True)
+    assert menu.ask_yes_no("Backlog に登録します。よろしいですか？") is True
+
+
+def test_batch_default_is_used_for_non_destructive_prompts():
+    menu.set_batch_mode([1])
+    assert menu.ask_yes_no("続行しますか？", batch_default=False) is False
+    assert menu.ask_yes_no("続行しますか？", batch_default=True) is True
+
+
+def test_yes_flag_overrides_batch_default():
+    menu.set_batch_mode([1], assume_yes=True)
+    assert menu.ask_yes_no("続行しますか？", batch_default=False) is True
+
+
+def test_manual_date_entry_is_rejected_in_batch():
+    menu.set_batch_mode([1])
+    with pytest.raises(menu.BatchInputRequired, match="日付の手動入力"):
+        menu._input_date("FROM: ")
+
+
+@pytest.mark.parametrize("presets", [
+    [9],     # 範囲外の選択
+    [1],     # 2つ目のサブメニューぶんが足りない
+])
+def test_run_directly_reports_batch_input_error(monkeypatch, history_file,
+                                                capsys, presets):
+    def handler():
+        menu.print_menu("サブ", ["A", "B"])
+        return menu.print_menu("さらにサブ", ["A"])
+    monkeypatch.setattr(menu, "COMMANDS",
+                        [{"label": "T", "handler": handler, "tool_dir": "t"}])
+    monkeypatch.setattr(menu, "load_yaml_commands", lambda: [])
+    assert menu.run_directly("1", presets=presets) == 2
+    assert "無人実行できません" in capsys.readouterr().out
+
+
+def test_run_directly_restores_interactive_mode(monkeypatch, history_file):
+    monkeypatch.setattr(menu, "COMMANDS",
+                        [{"label": "T", "handler": lambda: 0, "tool_dir": "t"}])
+    monkeypatch.setattr(menu, "load_yaml_commands", lambda: [])
+    menu.run_directly("1", presets=[1])
+    assert menu._BATCH_MODE is False       # 実行後は対話モードに戻る
 
 
 # ================================================================
