@@ -115,6 +115,32 @@ def test_week_label_mon_fri_prefixes_have_equal_width(freeze_today):
 
 
 # ================================================================
+# y/N 確認
+# ================================================================
+
+@pytest.mark.parametrize("typed, expected", [
+    ("y", True), ("Y", True), ("yes", True),
+    ("n", False), ("N", False), ("no", False),
+])
+def test_ask_yes_no_accepts_variants(monkeypatch, typed, expected):
+    monkeypatch.setattr("builtins.input", lambda _: typed)
+    assert menu.ask_yes_no("実行しますか？") is expected
+
+
+@pytest.mark.parametrize("default", [True, False])
+def test_ask_yes_no_empty_input_uses_default(monkeypatch, default):
+    monkeypatch.setattr("builtins.input", lambda _: "")
+    assert menu.ask_yes_no("実行しますか？", default=default) is default
+
+
+def test_ask_yes_no_reprompts_on_invalid(monkeypatch, capsys):
+    answers = iter(["x", "maybe", "y"])
+    monkeypatch.setattr("builtins.input", lambda _: next(answers))
+    assert menu.ask_yes_no("実行しますか？") is True
+    assert "y か n を入力してください" in capsys.readouterr().out
+
+
+# ================================================================
 # run_script のガード
 # ================================================================
 

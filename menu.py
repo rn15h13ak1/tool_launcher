@@ -51,6 +51,20 @@ def print_menu(title, items, back_label="戻る"):
         print("  ※ 無効な入力です。もう一度入力してください。")
 
 
+def ask_yes_no(prompt: str, default: bool = False) -> bool:
+    """y/n の確認を取る。空 Enter は default を採用する。"""
+    suffix = " [Y/n]" if default else " [y/N]"
+    while True:
+        answer = input(f"  {prompt}{suffix}: ").strip().lower()
+        if not answer:
+            return default
+        if answer in ("y", "yes"):
+            return True
+        if answer in ("n", "no"):
+            return False
+        print("  ※ y か n を入力してください。")
+
+
 def wait_enter():
     input("\n  Enter キーでメニューに戻ります...")
 
@@ -238,10 +252,7 @@ def run_excel_to_backlog():
         run_script("excel_to_backlog", "excel_to_backlog.py", ["--preview"])
     elif choice == 3:
         print()
-        confirm = input(
-            "  Backlog に実際に登録・更新します。よろしいですか？ [y/N]: "
-        ).strip().lower()
-        if confirm == "y":
+        if ask_yes_no("Backlog に実際に登録・更新します。よろしいですか？"):
             run_script("excel_to_backlog", "excel_to_backlog.py", ["--execute"])
         else:
             print("  キャンセルしました。")
@@ -311,8 +322,7 @@ def run_backlog_issue_cloner():
                         args, wait=False)
 
         if rc != 0:
-            cont = input("  続行しますか？ [y/N]: ").strip().lower()
-            if cont != "y":
+            if not ask_yes_no("続行しますか？"):
                 print("  中断しました。")
                 wait_enter()
                 return
