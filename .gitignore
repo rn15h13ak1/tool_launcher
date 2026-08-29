@@ -19,3 +19,6 @@ Thumbs.db
 
 # Claude Code ワークツリー・キャッシュ
 .claude/
+
+# ローカル固有の追加ツール定義（tools.sample.yaml をコピーして使う）
+tools.yaml

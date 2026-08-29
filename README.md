@@ -81,6 +81,28 @@ COMMANDS = [
 ]
 ```
 
+### `tools.yaml` で追加する（Python を書かない方法）
+
+「引数を選んで実行するだけ」の単純なツールなら、`menu.py` を編集せずに追加できます。
+
+```bash
+cp tools.sample.yaml tools.yaml
+```
+
+```yaml
+tools:
+  - label: "新しいツール"
+    tool_dir: "new_tool"
+    script: "main.py"        # 省略時 main.py
+    options:                 # 省略時は引数なしで即実行
+      - {label: "通常実行", args: []}
+      - {label: "詳細ログ", args: ["-v"]}
+```
+
+`tools.yaml` は起動のたびに読み直されるため、メニューを開いたまま編集しても
+次の表示から反映されます。日付選択のような複雑な操作が必要な場合は
+`menu.py` にハンドラを書いてください。
+
 ### `run_script()` の使い方
 
 ```python

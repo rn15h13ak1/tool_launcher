@@ -203,6 +203,92 @@ def test_menu_labels_are_clean_when_tools_exist():
     assert len(labels) == len(menu.COMMANDS)
 
 
+# ================================================================
+# tools.yaml
+# ================================================================
+
+def _write_tools_yaml(monkeypatch, tmp_path, text: str):
+    path = tmp_path / "tools.yaml"
+    path.write_text(text, encoding="utf-8")
+    monkeypatch.setattr(menu, "TOOLS_YAML", path)
+    return path
+
+
+def test_no_tools_yaml_means_builtin_commands_only(monkeypatch, tmp_path):
+    monkeypatch.setattr(menu, "TOOLS_YAML", tmp_path / "absent.yaml")
+    assert menu.load_yaml_commands() == []
+    assert len(menu.all_commands()) == len(menu.COMMANDS)
+
+
+def test_tools_yaml_entries_are_appended(monkeypatch, tmp_path):
+    _write_tools_yaml(monkeypatch, tmp_path, """
+tools:
+  - label: "追加ツール"
+    tool_dir: "extra_tool"
+    script: "run.py"
+    options:
+      - {label: "通常実行", args: []}
+      - {label: "詳細", args: ["-v"]}
+""")
+    extra = menu.load_yaml_commands()
+    assert len(extra) == 1
+    assert extra[0]["label"] == "追加ツール"
+    assert extra[0]["tool_dir"] == "extra_tool"
+    assert callable(extra[0]["handler"])
+    assert menu.all_commands()[-1]["label"] == "追加ツール"
+
+
+def test_tools_yaml_handler_passes_selected_args(monkeypatch, tmp_path):
+    _write_tools_yaml(monkeypatch, tmp_path, """
+tools:
+  - label: "追加ツール"
+    tool_dir: "extra_tool"
+    script: "run.py"
+    options:
+      - {label: "通常実行", args: []}
+      - {label: "詳細", args: ["-v"]}
+""")
+    calls = []
+    monkeypatch.setattr(menu, "run_script",
+                        lambda *a, **kw: calls.append((a, kw)) or 0)
+    monkeypatch.setattr(menu, "print_menu", lambda *a, **kw: 2)   # 2番目を選択
+
+    menu.load_yaml_commands()[0]["handler"]()
+    assert calls == [(("extra_tool", "run.py", ["-v"]), {})]
+
+
+def test_tools_yaml_without_options_runs_immediately(monkeypatch, tmp_path):
+    _write_tools_yaml(monkeypatch, tmp_path, """
+tools:
+  - label: "引数なしツール"
+    tool_dir: "plain_tool"
+""")
+    calls = []
+    monkeypatch.setattr(menu, "run_script",
+                        lambda *a, **kw: calls.append(a) or 0)
+    menu.load_yaml_commands()[0]["handler"]()
+    assert calls == [("plain_tool", "main.py")]      # script は既定の main.py
+
+
+def test_tools_yaml_skips_invalid_entries(monkeypatch, tmp_path, capsys):
+    _write_tools_yaml(monkeypatch, tmp_path, """
+tools:
+  - label: "tool_dir がない"
+  - tool_dir: "label がない"
+  - label: "正しいツール"
+    tool_dir: "ok_tool"
+""")
+    extra = menu.load_yaml_commands()
+    assert [c["label"] for c in extra] == ["正しいツール"]
+    assert "label と tool_dir が必要です" in capsys.readouterr().out
+
+
+def test_broken_tools_yaml_does_not_raise(monkeypatch, tmp_path, capsys):
+    _write_tools_yaml(monkeypatch, tmp_path, "tools: [unclosed\n")
+    assert menu.load_yaml_commands() == []
+    assert "読み込みに失敗" in capsys.readouterr().out
+
+
 @pytest.mark.parametrize("arg", ["-h", "--help", "-l", "--list"])
 def test_help_and_list_exit_zero(arg, capsys):
     assert menu.run_directly(arg) == 0

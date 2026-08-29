@@ -439,10 +439,82 @@ COMMANDS = [
 ]
 
 
-def menu_labels() -> list:
+# ================================================================
+# tools.yaml による追加ツール（任意）
+# ================================================================
+# サブメニューが「引数を選ぶだけ」の単純なツールは、menu.py を編集せずに
+# tools.yaml で追加できる。ファイルが無ければ何もしない。
+#
+#   tools:
+#     - label: "新しいツール"
+#       tool_dir: "new_tool"
+#       script: "main.py"
+#       options:                        # 省略時は引数なしで即実行
+#         - {label: "通常実行", args: []}
+#         - {label: "詳細ログ", args: ["-v"]}
+# ================================================================
+
+TOOLS_YAML = MENU_DIR / "tools.yaml"
+
+
+def _make_yaml_handler(entry: dict):
+    """tools.yaml の 1 エントリからハンドラ関数を作る。"""
+    label    = entry["label"]
+    tool_dir = entry["tool_dir"]
+    script   = entry.get("script", "main.py")
+    options  = entry.get("options") or []
+
+    def handler():
+        if not options:
+            run_script(tool_dir, script)
+            return
+        choice = print_menu(label, [o["label"] for o in options])
+        if choice == 0:
+            return
+        run_script(tool_dir, script, list(options[choice - 1].get("args") or []))
+
+    handler.__doc__ = f"{label}（tools.yaml で定義）"
+    return handler
+
+
+def load_yaml_commands() -> list:
+    """tools.yaml を読み込んで COMMANDS 形式のリストを返す。"""
+    if not TOOLS_YAML.is_file():
+        return []
+    try:
+        import yaml
+    except ImportError:
+        print(f"  ※ PyYAML が無いため {TOOLS_YAML.name} を読み込めません。")
+        return []
+    try:
+        with TOOLS_YAML.open(encoding="utf-8") as f:
+            data = yaml.safe_load(f) or {}
+    except Exception as e:
+        print(f"  ※ {TOOLS_YAML.name} の読み込みに失敗しました: {e}")
+        return []
+
+    commands = []
+    for entry in data.get("tools") or []:
+        if not isinstance(entry, dict) or not entry.get("label") or not entry.get("tool_dir"):
+            print(f"  ※ {TOOLS_YAML.name}: label と tool_dir が必要です: {entry!r}")
+            continue
+        commands.append({
+            "label":    entry["label"],
+            "handler":  _make_yaml_handler(entry),
+            "tool_dir": entry["tool_dir"],
+        })
+    return commands
+
+
+def all_commands() -> list:
+    """組み込みのツール + tools.yaml のツール。"""
+    return COMMANDS + load_yaml_commands()
+
+
+def menu_labels(commands: list = None) -> list:
     """メニュー表示用ラベル。未配置のツールには印を付ける。"""
     labels = []
-    for cmd in COMMANDS:
+    for cmd in (all_commands() if commands is None else commands):
         tool_dir = cmd.get("tool_dir")
         if tool_dir and not (TOOLS_ROOT / tool_dir).is_dir():
             labels.append(f"{cmd['label']}  ※未配置")
@@ -483,14 +555,15 @@ def run_directly(arg: str) -> int:
         print_tool_list()
         return 0
 
-    if not arg.isdigit() or not (1 <= int(arg) <= len(COMMANDS)):
+    commands = all_commands()
+    if not arg.isdigit() or not (1 <= int(arg) <= len(commands)):
         print(f"  ※ 不正な番号です: {arg}")
-        print(f"     1〜{len(COMMANDS)} の番号を指定してください:")
+        print(f"     1〜{len(commands)} の番号を指定してください:")
         print_tool_list("       ")
         print("     ヘルプ: python menu.py --help")
         return 2
 
-    cmd = COMMANDS[int(arg) - 1]
+    cmd = commands[int(arg) - 1]
     print(f"\n  直接実行: {cmd['label']}")
     try:
         cmd["handler"]()
@@ -510,11 +583,14 @@ def main():
 
     while True:
         try:
-            choice = print_menu("ツールメニュー", menu_labels(), back_label="終了")
+            # tools.yaml の編集を再起動なしで反映するため、毎回読み直す
+            commands = all_commands()
+            choice = print_menu("ツールメニュー", menu_labels(commands),
+                                back_label="終了")
             if choice == 0:
                 print("\n  終了します。\n")
                 break
-            COMMANDS[choice - 1]["handler"]()
+            commands[choice - 1]["handler"]()
         except KeyboardInterrupt:
             # 長時間実行のツールを Ctrl+C で止めてもメニューには戻れるようにする
             print("\n\n  中断しました。メニューに戻ります。")
