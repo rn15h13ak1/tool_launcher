@@ -411,7 +411,33 @@ def menu_labels() -> list:
 # メインループ
 # ================================================================
 
+def run_directly(arg: str) -> int:
+    """コマンドライン引数で指定された番号のツールを直接実行する。"""
+    if not arg.isdigit() or not (1 <= int(arg) <= len(COMMANDS)):
+        print(f"  ※ 不正な番号です: {arg}")
+        print(f"     1〜{len(COMMANDS)} の番号を指定してください:")
+        for i, label in enumerate(menu_labels(), 1):
+            print(f"       {i}. {label}")
+        return 2
+
+    cmd = COMMANDS[int(arg) - 1]
+    print(f"\n  直接実行: {cmd['label']}")
+    try:
+        cmd["handler"]()
+    except KeyboardInterrupt:
+        print("\n\n  中断しました。")
+        return 130
+    except EOFError:
+        print("\n\n  入力が終了しました。")
+        return 1
+    return 0
+
+
 def main():
+    # `python menu.py 6` のように番号を渡すと、そのツールを直接起動する
+    if len(sys.argv) > 1:
+        return run_directly(sys.argv[1])
+
     while True:
         try:
             choice = print_menu("ツールメニュー", menu_labels(), back_label="終了")
