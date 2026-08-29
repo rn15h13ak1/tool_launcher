@@ -59,6 +59,19 @@ def wait_enter():
 # スクリプト実行
 # ================================================================
 
+def python_for(tool_dir: Path) -> str:
+    """
+    ツールを実行する Python インタプリタを決める。
+    ツール専用の .venv があればそれを使い、無ければランチャーと同じ Python を使う。
+    ツール名で分岐せず .venv の有無だけで判断するので、全ツールに同じ規則が適用される。
+    """
+    if sys.platform == "win32":
+        venv_python = tool_dir / ".venv" / "Scripts" / "python.exe"
+    else:
+        venv_python = tool_dir / ".venv" / "bin" / "python"
+    return str(venv_python) if venv_python.is_file() else sys.executable
+
+
 def run_script(tool_dir_name: str, script_name: str, args: list = None, wait: bool = True):
     """
     TOOLS_ROOT / tool_dir_name にある script_name を実行する。
@@ -83,10 +96,13 @@ def run_script(tool_dir_name: str, script_name: str, args: list = None, wait: bo
             wait_enter()
         return 127
 
-    cmd = [sys.executable, script_name] + args
+    python = python_for(cwd)
+    cmd = [python, script_name] + args
 
     print()
     cmd_str = " ".join(["python", script_name] + args)
+    if python != sys.executable:
+        cmd_str += "   （ツール専用の .venv を使用）"
     print(f"  実行: {cmd_str}")
     hr("-")
 
@@ -97,6 +113,11 @@ def run_script(tool_dir_name: str, script_name: str, args: list = None, wait: bo
         print("  完了しました。")
     else:
         print(f"  エラーが発生しました（終了コード: {result.returncode}）")
+        # 依存ライブラリ不足（ModuleNotFoundError）は分かりにくいので誘導する
+        req = cwd / "requirements.txt"
+        if python == sys.executable and req.is_file():
+            print("  ※ 「No module named ...」と表示された場合は依存不足です:")
+            print(f"     python -m pip install -r {req}")
 
     if wait:
         wait_enter()
