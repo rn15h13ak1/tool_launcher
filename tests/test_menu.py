@@ -225,6 +225,7 @@ def test_menu_order_is_stable():
         "file_sync_checker",
         "filelist",
         "docgrep",
+        "docmold",
     ]
 
 
@@ -899,12 +900,12 @@ def test_every_builtin_handler_returns_none_when_cancelled(monkeypatch):
     monkeypatch.setattr(menu, "run_script",
                         lambda *a, **kw: pytest.fail("キャンセル時に実行された"))
     for cmd in menu.COMMANDS:
-        if cmd["label"].startswith("docgrep"):
-            continue          # サブメニューを持たず即実行するため対象外
+        if cmd.get("script") == "menu.py":
+            continue          # ツール側の対話メニューに委譲するため対象外
         assert cmd["handler"]() is None, cmd["label"]
 
 
-@pytest.mark.parametrize("arg", ["--help", "--list", "7", "abc"])
+@pytest.mark.parametrize("arg", ["--help", "--list", "99", "abc"])
 def test_tools_yaml_is_read_once_per_invocation(monkeypatch, history_file, arg):
     """tools.yaml の読み込みが 1 回で済むこと。"""
     calls = []

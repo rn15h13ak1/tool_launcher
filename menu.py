@@ -545,6 +545,11 @@ COMMANDS = [
         "tool_dir": "docgrep",
         "script":   "menu.py",          # docgrep 側の対話メニューに委譲する
     },
+    {
+        "label":    "docmold（Markdown → HTML 変換）",
+        "tool_dir": "docmold",
+        "script":   "menu.py",          # docmold 側の対話メニューに委譲する
+    },
     # ── 新しいコマンドをここに追加 ──────────────────────────────────
 ]
 
