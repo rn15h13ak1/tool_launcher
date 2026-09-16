@@ -521,14 +521,7 @@ COMMANDS = [
     {
         "label":    "ファイル同期チェック",
         "tool_dir": "file_sync_checker",
-        "script":   "main.py",
-        # 既存の無人実行コマンドを壊さないよう、新しい選択肢は末尾に足すこと
-        "options": [
-            {"label": "通常実行", "args": []},
-            {"label": "詳細ログ付き実行（--verbose）", "args": ["--verbose"]},
-            {"label": "再試行あり（--retry 2・瞬断やロック対策）",
-             "args": ["--retry", "2"]},
-        ],
+        "script":   "menu.py",          # file_sync_checker 側の対話メニューに委譲する
     },
     {
         "label":    "ファイルリスト生成",

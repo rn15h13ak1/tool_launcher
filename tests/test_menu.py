@@ -765,26 +765,20 @@ def test_filelist_passes_mode(spy_run_script, choice, expected):
     assert spy_run_script.calls[0]["args"] == expected
 
 
-@pytest.mark.parametrize("choice, expected", [
-    (1, []),
-    (2, ["--verbose"]),
-    (3, ["--retry", "2"]),
+@pytest.mark.parametrize("label, tool_dir", [
+    ("docgrep", "docgrep"),
+    ("docmold", "docmold"),
+    ("ファイル同期", "file_sync_checker"),
 ])
-def test_file_sync_checker_passes_mode(spy_run_script, choice, expected):
-    menu.set_batch_mode([choice])
-    assert handler_for("ファイル同期")() == 0
-    assert spy_run_script.calls[0]["tool"] == "file_sync_checker"
-    assert spy_run_script.calls[0]["args"] == expected
-
-
-def test_docgrep_delegates_to_its_own_menu(spy_run_script):
-    assert handler_for("docgrep")() == 0
-    assert spy_run_script.calls == [{"tool": "docgrep", "script": "menu.py",
+def test_tools_delegating_to_their_own_menu(spy_run_script, label, tool_dir):
+    """自前の対話メニューを持つツールは menu.py をそのまま起動する。"""
+    assert handler_for(label)() == 0
+    assert spy_run_script.calls == [{"tool": tool_dir, "script": "menu.py",
                                      "args": [], "wait": True}]
 
 
 @pytest.mark.parametrize("label", [
-    "Backlog 週次レポート", "Excel", "ファイル同期", "ファイルリスト",
+    "Backlog 週次レポート", "Excel", "ファイルリスト",
 ])
 def test_handlers_return_none_and_run_nothing_when_cancelled(spy_run_script,
                                                              label):
