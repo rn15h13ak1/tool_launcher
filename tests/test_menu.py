@@ -636,6 +636,26 @@ def test_cloner_continues_past_error_with_yes(freeze_today, spy_run_script):
     assert len(spy_run_script.calls) == 5               # 最後まで実行する
 
 
+def test_cloner_delegates_other_operations(freeze_today, spy_run_script):
+    """末尾の選択肢はツール側の menu.py を起動する（週次一括以外の操作）。"""
+    assert _cloner(freeze_today, MONDAY, [4]) == 0
+    assert spy_run_script.calls == [{"tool": "backlog_issue_cloner",
+                                     "script": "menu.py",
+                                     "args": [], "wait": True}]
+
+
+def test_cloner_week_numbers_are_unchanged(freeze_today, spy_run_script):
+    """`menu.py 3 2 1` が今までどおり「来週 → ドライラン」であること。
+
+    委譲の選択肢を先頭に足すと既存の無人実行コマンドの意味が変わるため、
+    末尾に足している。その前提が崩れていないかを見る。
+    """
+    _cloner(freeze_today, MONDAY, [2, 1])
+    dates = [c["args"][1] for c in spy_run_script.calls]
+    assert dates[0] == "20260831"          # 翌週の月曜
+    assert all("--execute" not in c["args"] for c in spy_run_script.calls)
+
+
 @pytest.mark.parametrize("presets", [[0], [2, 0]])
 def test_cloner_cancel_runs_nothing(freeze_today, spy_run_script, presets):
     assert _cloner(freeze_today, MONDAY, presets) is None

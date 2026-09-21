@@ -329,11 +329,25 @@ CLONER_WEEK_PRESET_COUNT = 3   # 今週・来週・再来週
 
 
 def run_backlog_issue_cloner():
-    """Backlog 課題クローン（週次登録）- 月〜金の5日分を順次実行"""
+    """
+    Backlog 課題クローン。
+
+    週次一括登録（月〜金の5日分）はランチャー側で組み立てる。ツール側の menu.py は
+    1 日ぶんしか扱わないため、この機能は委譲できない。
+    それ以外の操作（単純複製・直接更新）はツール側のメニューに任せる。
+
+    週の選択肢を先頭に置いたままにしているのは、`menu.py 3 2 1` のような
+    既存の無人実行コマンドの番号を変えないため。
+    """
     week_items = [week_label_mon_fri(i) for i in range(CLONER_WEEK_PRESET_COUNT)]
-    week_choice = print_menu("Backlog 課題クローン - 週を選択", week_items)
+    items = week_items + ["その他の操作（単純複製・直接更新）"]
+    week_choice = print_menu("Backlog 課題クローン - 操作を選択", items)
     if week_choice == 0:
         return None
+
+    # 末尾はツール側の対話メニューに委譲する
+    if week_choice == len(items):
+        return run_script("backlog_issue_cloner", "menu.py")
 
     weeks_offset = week_choice - 1
     start, _ = get_mon_to_fri(weeks_offset)
