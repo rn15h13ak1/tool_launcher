@@ -32,7 +32,10 @@
 - `tools.sample.yaml` を `tools.example.yaml` に改名した。共通規約の命名は
   `*.example.*` で、兄弟リポジトリもすべて `config.example.yaml` だった
 - `.gitignore` を共通規約の定型に揃えた。資格情報のパターン（`.env` / `*.pem` /
-  `*.key` / `credentials*` など）が抜けていた
+  `*.key` / `credentials*` など）が抜けていた。その後、定型に SSH の鍵
+  （`id_rsa*` / `id_ed25519*` / `id_ecdsa*` / `*.ppk` / `known_hosts`）が
+  加わったため追随した。`*.pem` / `*.key` は拡張子にしか当たらず、拡張子の無い
+  鍵ファイルを捕まえられない
 - `CLAUDE.md` に本リポジトリ固有の事情を書いた。共通規約からの逸脱
   （commit / push を確認なしで行う）、コミット前の検査、メニュー番号を変えない方針、
   ツール側メニューへの委譲の 4 つ
