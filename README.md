@@ -106,7 +106,7 @@ python menu.py 3 2 2 --yes   # 課題クローン → 来週 → 実行（確認
 
 ```
 $ python menu.py --log
-  直近の実行 2 件（新しい順）  /Users/you/.tool_launcher_history.json
+  直近の実行 2 件（新しい順）  ~/.tool_launcher_history.json
 --------------------------------------------------------------
     2026-08-29 10:37:07  excel_to_backlog/excel_to_backlog.py --execute   → 0
   ! 2026-08-29 10:37:06  filelist/filelist.py --dry-run   → 2
