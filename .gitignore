@@ -1,32 +1,42 @@
-# VSCode 個人設定（インタープリタパスなど）
+# OS / エディタ
+.DS_Store
+Thumbs.db
+.idea/
+.claude/
+*.swp
+*~
+
+# VSCode: launch.json は共有したいので、個人設定だけ無視する
+# （定型は .vscode/ を丸ごと無視だが、F5 起動の設定を配りたいため外した）
 .vscode/settings.json
 
-# mac-watcher トリガー / ログファイル
-.git-trigger
-.git-output.log
+# mac-watcher トリガー・ログ
 .build-trigger
 .build-output.log
+.git-trigger
+.git-output.log
+.github-trigger
 
-# 仮想環境
+# 資格情報
+.env
+.env.*
+secrets.yaml
+credentials*
+*.pem
+*.key
+*.local.yaml
+
+# Python
 .venv/
-
-# Python キャッシュ
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 
-# OS 生成ファイル
-.DS_Store
-Thumbs.db
-
-# Claude Code ワークツリー・キャッシュ
-.claude/
-
-# ローカル固有の追加ツール定義（tools.sample.yaml をコピーして使う）
-tools.yaml
-
 # カバレッジ計測の成果物
 .coverage
 coverage.json
 htmlcov/
+
+# ローカル固有の追加ツール定義（tools.example.yaml をコピーして使う）
+tools.yaml
