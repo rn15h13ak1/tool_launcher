@@ -1,14 +1,11 @@
 # OS / エディタ
 .DS_Store
 Thumbs.db
+.vscode/
 .idea/
 .claude/
 *.swp
 *~
-
-# VSCode: launch.json は共有したいので、個人設定だけ無視する
-# （定型は .vscode/ を丸ごと無視だが、F5 起動の設定を配りたいため外した）
-.vscode/settings.json
 
 # mac-watcher トリガー・ログ
 .build-trigger

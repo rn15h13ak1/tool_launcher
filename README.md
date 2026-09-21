@@ -19,7 +19,6 @@ python3 -m venv .venv
 
 `python menu.py` で使うだけなら仮想環境は不要ですが、次の場合に必要です。
 
-- **VSCode の F5 で起動する**（`.vscode/launch.json` が `.venv` を指しているため）
 - `tools.yaml` でツールを追加する（PyYAML が必要）
 - テストを実行する（pytest が必要）
 
@@ -117,8 +116,6 @@ $ python menu.py --log
 
 先頭の `!` は終了コードが 0 以外だったことを示します。
 
-VSCode では `F5`（`.vscode/launch.json` に設定済み）でも起動できます。
-
 前回実行したツールには `←前回` が付き、**空 Enter でそのまま再実行**できます
 （履歴は `~/.tool_launcher_history.json`。ラベルで記憶するため、ツールが増減して
 番号がずれても追従します）。
@@ -168,8 +165,7 @@ ws/
 │   ├── requirements.txt      PyYAML（tools.yaml 用）
 │   ├── requirements-dev.txt  pytest / pytest-cov
 │   ├── pytest.ini
-│   ├── tests/
-│   └── .vscode/launch.json
+│   └── tests/
 ├── backlog_report/
 ├── excel_to_backlog/
 ├── backlog_issue_cloner/
