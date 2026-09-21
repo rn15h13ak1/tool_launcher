@@ -48,6 +48,10 @@ python menu.py --list # ツール一覧
 python menu.py --log  # 直近の実行ログ
 ```
 
+Windows では `menu.bat` をダブルクリックしても起動できます。`py -3` → `python` の
+順に Python を探し、見つからなければその旨を表示します。引数はそのまま渡るため、
+`menu.bat 3 2 1` のような無人実行にも使えます。
+
 直接起動では**ツールの終了コードがそのまま返る**ため、バッチやタスク
 スケジューラから成否を判定できます。
 
@@ -161,6 +165,7 @@ $ python menu.py --log
 ws/
 ├── tool_launcher/
 │   ├── menu.py               ← このランチャー
+│   ├── menu.bat              Windows 用の起動口（ダブルクリック可）
 │   ├── tools.example.yaml    tools.yaml のひな形
 │   ├── requirements.txt      PyYAML（tools.yaml 用）
 │   ├── requirements-dev.txt  pytest / pytest-cov
