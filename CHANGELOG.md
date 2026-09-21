@@ -14,6 +14,8 @@
   メニューは 1 日ぶんしか扱わず、委譲すると月〜金の一括登録が失われるため
 
 ### Changed
+- `tools.sample.yaml` を `tools.example.yaml` に改名した。共通規約の命名は
+  `*.example.*` で、兄弟リポジトリもすべて `config.example.yaml` だった
 - `.gitignore` を共通規約の定型に揃えた。資格情報のパターン（`.env` / `*.pem` /
   `*.key` / `credentials*` など）が抜けていた
 - `CLAUDE.md` に本リポジトリ固有の事情を書いた。共通規約からの逸脱（`.vscode/` を

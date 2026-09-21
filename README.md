@@ -164,7 +164,7 @@ VSCode では `F5`（`.vscode/launch.json` に設定済み）でも起動でき�
 ws/
 ├── tool_launcher/
 │   ├── menu.py               ← このランチャー
-│   ├── tools.sample.yaml     tools.yaml のひな形
+│   ├── tools.example.yaml    tools.yaml のひな形
 │   ├── requirements.txt      PyYAML（tools.yaml 用）
 │   ├── requirements-dev.txt  pytest / pytest-cov
 │   ├── pytest.ini
@@ -229,7 +229,7 @@ COMMANDS = [
 で動くため、`confirm` も使えます。
 
 ```bash
-cp tools.sample.yaml tools.yaml
+cp tools.example.yaml tools.yaml
 ```
 
 ```yaml
