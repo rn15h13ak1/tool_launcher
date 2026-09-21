@@ -296,3 +296,7 @@ rc = run_script(tool_dir_name, script_name, args=None, wait=True)
 
 メニュー操作中の `Ctrl+C` は実行中のツールを中断してメニューに戻ります
 （ランチャー自体は終了しません）。
+
+## ライセンス
+
+MIT License — [LICENSE](LICENSE) を参照。
