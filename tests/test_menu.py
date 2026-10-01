@@ -4,13 +4,10 @@
 """
 import sys
 from datetime import date
-from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
-import menu  # noqa: E402
+import menu
 
 
 # 2026-08-24 は月曜。曜日をずらして検証するときの基準にする。

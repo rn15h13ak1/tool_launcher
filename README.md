@@ -271,8 +271,8 @@ rc = run_script(tool_dir_name, script_name, args=None, wait=True)
 ## テスト
 
 ```bash
-.venv/bin/pytest                              # Windows: .venv\Scripts\pytest
-.venv/bin/pytest --cov=menu --cov-report=term-missing   # カバレッジ計測
+.venv/bin/python -m pytest                    # Windows: .venv\Scripts\python -m pytest
+.venv/bin/python -m pytest --cov=menu --cov-report=term-missing   # カバレッジ計測
 ```
 
 日付ロジック、バッチ実行の制御と安全弁、各ハンドラがツールへ渡す引数、

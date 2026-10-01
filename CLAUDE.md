@@ -12,12 +12,18 @@
 利用者から包括的な指示を受けているため確認なしでコミットし、`main` へ push する
 （2026-09-21）。**他のツールのリポジトリは対象外で、既定では変更しない。**
 
+## テストの置き場と実行
+
+[Python のテストの手引き](../ws-conventions/guides/python-test.md)の標準に合わせている。
+`pytest.ini` の `pythonpath = .` で import を通すため、**テストファイル側に
+`sys.path` を書かない**（書くとファイルが増えるたびに写すことになる）。
+
 ## コミット前に実行する検査
 
 ```bash
 ../ws-conventions/bin/check-markdown.sh .
 ../ws-conventions/bin/check-privacy.sh .
-.venv/bin/pytest
+.venv/bin/python -m pytest
 ```
 
 ADR は使っていないため、`check-terms.sh` と `gen-decision-index.py` は対象外。

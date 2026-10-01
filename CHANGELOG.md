@@ -43,6 +43,11 @@
   外した。起動は `python menu.py` に一本化する
 
 ### Changed
+- テストの設定を共通の標準に寄せた（`../ws-conventions/guides/python-test.md`）。
+  `pytest.ini` に `pythonpath = .` を足し、テストファイルごとに書いていた
+  `sys.path.insert` を外した（増えるたびに写すことになる）。`addopts` を
+  `-ra --tb=short` にして、落ちた理由が見えるようにした
+  （提案 `../proposals/python-test-setup-divergence.md`）
 - `tools.sample.yaml` を `tools.example.yaml` に改名した。共通規約の命名は
   `*.example.*` で、兄弟リポジトリもすべて `config.example.yaml` だった
 - `.gitignore` を共通規約の定型に揃えた。資格情報のパターン（`.env` / `*.pem` /
