@@ -9,6 +9,7 @@ macOS / Linux では気づけない退行を検出する。本ランチャーは
 """
 from __future__ import annotations
 
+import io
 import re
 import sys
 from pathlib import Path
@@ -29,6 +30,18 @@ CONSOLE_SOURCES = ("menu.py",)
 
 # tools.example.yaml の label は、tools.yaml にコピーするとそのまま画面に出る。
 MENU_TEXT_SOURCES = ("tools.example.yaml",)
+
+
+def _emoji_tools_yaml(tmp_path: Path) -> Path:
+    """CP932 に無い文字をラベルに持つ tools.yaml を作る。"""
+    path = tmp_path / "tools.yaml"
+    path.write_text(
+        'tools:\n'
+        '  - label: "\U0001F680 デプロイ"\n'
+        '    tool_dir: "deploy"\n',
+        encoding="utf-8",
+    )
+    return path
 
 
 def _unencodable(text: str) -> set:
@@ -75,6 +88,63 @@ class TestCp932Safety:
             assert _unencodable(menu.week_label_mon_fri(i)) == set()
         for i in range(menu.WEEK_PRESET_COUNT):
             assert _unencodable(menu.week_label(i)) == set()
+
+
+class TestConsoleSafety:
+    """外から来る文字で落ちないこと。
+
+    ソースの文字は TestCp932Safety で CP932 に収めているが、tools.yaml のラベルは
+    利用者が書くため防げない。絵文字を 1 つ書かれるとメニューの一覧表示で落ち、
+    何もできずに終わる。
+    """
+
+    @staticmethod
+    def _cp932_stdout():
+        """Windows の日本語コンソールを模した差し替え用のストリーム。"""
+        return io.TextIOWrapper(io.BytesIO(), encoding="cp932", errors="strict")
+
+    def test_unencodable_label_crashes_without_the_guard(self, monkeypatch,
+                                                         tmp_path):
+        """前提: 手当てが無いと落ちる。外したときに何が起きるかを残す。"""
+        stream = self._cp932_stdout()
+        monkeypatch.setattr(sys, "stdout", stream)
+        monkeypatch.setattr(menu, "TOOLS_YAML", _emoji_tools_yaml(tmp_path))
+        with pytest.raises(UnicodeEncodeError):
+            menu.print_tool_list()
+
+    def test_guard_replaces_unencodable_label(self, monkeypatch, tmp_path):
+        """手当てがあると、その文字だけ ? になる。"""
+        stream = self._cp932_stdout()
+        monkeypatch.setattr(sys, "stdout", stream)
+        monkeypatch.setattr(menu, "TOOLS_YAML", _emoji_tools_yaml(tmp_path))
+
+        menu.make_console_safe([stream])
+        menu.print_tool_list()          # 落ちないこと
+
+        stream.flush()
+        out = stream.buffer.getvalue().decode("cp932")
+        assert "? デプロイ" in out
+
+    def test_guard_leaves_utf8_console_alone(self):
+        """UTF-8 のコンソール（macOS など）では何もしない。"""
+        stream = io.TextIOWrapper(io.BytesIO(), encoding="utf-8",
+                                  errors="strict")
+        menu.make_console_safe([stream])
+        assert stream.errors == "strict"
+
+    def test_guard_survives_a_stream_without_reconfigure(self):
+        """reconfigure を持たないストリームでも例外にしない。"""
+        menu.make_console_safe([io.StringIO()])
+
+    def test_guard_is_called_before_anything_else(self):
+        """入口で、ほかの処理より先に呼んでいること。"""
+        src = (ROOT / "menu.py").read_text(encoding="utf-8")
+        body = src.split("def main():", 1)[1]
+        assert "make_console_safe()" in body
+        called = body.index("make_console_safe()")
+        assert called < body.index("parse_args("), (
+            "引数の解析より後に呼んでいます。解析のエラー表示で落ちます。"
+        )
 
 
 class TestMenuBat:

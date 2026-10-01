@@ -14,6 +14,12 @@
   メニューは 1 日ぶんしか扱わず、委譲すると月〜金の一括登録が失われるため
 
 ### Added
+- `make_console_safe()`。UTF-8 でないコンソールに限り、表せない文字を `?` に置き換えて
+  出す。`tools.yaml` のラベルは利用者が書くためソースの検査では防げず、絵文字を 1 つ
+  書かれるとメニューの一覧表示で落ち、何もできずに終わっていた（cp932 の標準出力を
+  模して再現を確認）。コードページは変えず、子ツールへ渡す引数も変えない
+  （提案 `../proposals/windows-console-backlog-text.md`。当リポジトリは対象外だが、
+  同じ経路があった）
 - `tests/test_windows.py`。Windows での退行を防ぐ。画面に出す文字が CP932 に
   収まること、`menu.bat` が CRLF・ASCII で引数と終了コードを通すこと、引数付きでは
   `pause` しないこと、Windows で `.venv\Scripts\python.exe` を選ぶことを固定した。

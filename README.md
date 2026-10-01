@@ -286,6 +286,11 @@ rc = run_script(tool_dir_name, script_name, args=None, wait=True)
 - `menu.bat` が CRLF・ASCII のみで、引数を渡し、終了コードを返すこと
 - 引数付きのときは `pause` しないこと（タスクスケジューラで待ち続けないため）
 - Windows では `.venv\Scripts\python.exe` を選ぶこと
+- `tools.yaml` のラベルに CP932 外の文字（絵文字など）があっても落ちないこと
+
+ソースの文字は検査できますが、`tools.yaml` は利用者が書くため検査できません。
+UTF-8 でないコンソールに限り、表せない文字を `?` に置き換えて出します
+（コードページは変えません。子ツールへ渡す引数も変わりません）。
 
 `subprocess` の実行部と対話ループ（`main` / `_input_date`）は
 副作用が大きいため対象外にしています。

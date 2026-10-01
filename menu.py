@@ -64,6 +64,32 @@ def auto_yes_args(flag: str = "--yes") -> list:
     return [flag] if (_BATCH_MODE and _ASSUME_YES) else []
 
 
+def make_console_safe(streams=None):
+    """
+    UTF-8 でないコンソールで、表せない文字を「?」に置き換えて出すようにする。
+
+    Windows の日本語コンソールは既定で CP932 で、CP932 に無い文字を print すると
+    UnicodeEncodeError で落ちる。ランチャー自身の文字は tests/test_windows.py で
+    CP932 に収めているが、tools.yaml のラベルは利用者が書くため防げない。絵文字を
+    1 つ書かれるとメニューの一覧表示で落ち、何もできずに終わる。落ちるよりは、
+    その文字だけ「?」になる方がよい。
+
+    コードページ（chcp）は変えない。同じ窓で次に動かすものに影響するため。
+    置き換わるのは画面の表示だけで、子ツールへ渡す引数は変わらない。
+
+    作りは ../backlog_change_log/change_log/runtime.py に揃えている
+    （提案 ../proposals/windows-console-backlog-text.md）。
+    """
+    for stream in (sys.stdout, sys.stderr) if streams is None else streams:
+        encoding = (getattr(stream, "encoding", None) or "").lower().replace("-", "").replace("_", "")
+        if encoding in ("", "utf8") or not hasattr(stream, "reconfigure"):
+            continue
+        try:
+            stream.reconfigure(errors="replace")
+        except (ValueError, OSError):
+            pass
+
+
 def hr(char="="):
     print(char * WIDTH)
 
@@ -843,6 +869,10 @@ def run_directly(arg: str, presets: list = None, assume_yes: bool = False) -> in
 
 
 def main():
+    # ほかの処理より先に呼ぶ。tools.yaml のラベルに CP932 外の文字があっても、
+    # メニューの表示で落ちないようにする。
+    make_console_safe()
+
     # `python menu.py 6` のように番号を渡すと、そのツールを直接起動する。
     # さらにサブ選択を続けると入力待ちなしで無人実行する。
     if len(sys.argv) > 1:
