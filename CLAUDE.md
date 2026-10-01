@@ -23,6 +23,15 @@
 ADR は使っていないため、`check-terms.sh` と `gen-decision-index.py` は対象外。
 `bin/` に検査スクリプトを置いていないため、`check-commands.sh` も対象外。
 
+## 画面に出す文字は CP932 に収める
+
+Windows の日本語コンソールは既定で CP932 になる。CP932 に無い文字を `print` すると
+文字化けではなく `UnicodeEncodeError` で落ち、`menu.bat` のダブルクリックでは
+**最初の画面すら出ない。** 開発機が macOS だと気付けないため、
+`tests/test_windows.py` で固定している。
+
+`✓` `✗` `⏳` や em dash（`—`）は使えない。`←` `※` `〜` `─` `→` 全角スペースは使える。
+
 ## メニュー番号を変えない
 
 `README.md` は `menu.py 3 2 1` のような無人実行コマンドを cron 用に案内している。

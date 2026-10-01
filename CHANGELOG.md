@@ -14,6 +14,12 @@
   メニューは 1 日ぶんしか扱わず、委譲すると月〜金の一括登録が失われるため
 
 ### Added
+- `tests/test_windows.py`。Windows での退行を防ぐ。画面に出す文字が CP932 に
+  収まること、`menu.bat` が CRLF・ASCII で引数と終了コードを通すこと、引数付きでは
+  `pause` しないこと、Windows で `.venv\Scripts\python.exe` を選ぶことを固定した。
+  開発機が macOS のため、壊れても既存のテストは全部通ってしまい気付く経路が無かった
+  （提案 `../proposals/windows-console-cp932.md`。当リポジトリは対象外だったが、
+  `menu.bat` を配っているため入れた）
 - Backlog 変更記録（`../backlog_change_log`）をメニューに追加（8 番）。ツール側の
   `menu.py` に委譲する。番号は末尾に足したので既存ツールの番号は変わらない
 - `LICENSE`（MIT）。公開リポジトリなのにライセンスが無く、閲覧はできても利用・改変・

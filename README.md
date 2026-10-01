@@ -278,6 +278,15 @@ rc = run_script(tool_dir_name, script_name, args=None, wait=True)
 日付ロジック、バッチ実行の制御と安全弁、各ハンドラがツールへ渡す引数、
 `run_script` のガード、履歴・実行ログ、`tools.yaml` の読み込みを検証します。
 
+`tests/test_windows.py` は Windows での退行を防ぎます。開発機が macOS だと
+気付けないため、次をテストで固定しています。
+
+- 画面に出す文字が CP932 に収まること（収まらないと日本語コンソールで
+  `UnicodeEncodeError` になり、`menu.bat` のダブルクリックでは最初の画面すら出ない）
+- `menu.bat` が CRLF・ASCII のみで、引数を渡し、終了コードを返すこと
+- 引数付きのときは `pause` しないこと（タスクスケジューラで待ち続けないため）
+- Windows では `.venv\Scripts\python.exe` を選ぶこと
+
 `subprocess` の実行部と対話ループ（`main` / `_input_date`）は
 副作用が大きいため対象外にしています。
 
