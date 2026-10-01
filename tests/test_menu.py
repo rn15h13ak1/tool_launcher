@@ -226,6 +226,7 @@ def test_menu_order_is_stable():
         "filelist",
         "docgrep",
         "docmold",
+        "backlog_change_log",
     ]
 
 
@@ -789,6 +790,7 @@ def test_filelist_passes_mode(spy_run_script, choice, expected):
     ("docgrep", "docgrep"),
     ("docmold", "docmold"),
     ("ファイル同期", "file_sync_checker"),
+    ("Backlog 変更記録", "backlog_change_log"),
 ])
 def test_tools_delegating_to_their_own_menu(spy_run_script, label, tool_dir):
     """自前の対話メニューを持つツールは menu.py をそのまま起動する。"""

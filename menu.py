@@ -557,6 +557,11 @@ COMMANDS = [
         "tool_dir": "docmold",
         "script":   "menu.py",          # docmold 側の対話メニューに委譲する
     },
+    {
+        "label":    "Backlog 変更記録",
+        "tool_dir": "backlog_change_log",
+        "script":   "menu.py",          # backlog_change_log 側の対話メニューに委譲する
+    },
     # ── 新しいコマンドをここに追加 ──────────────────────────────────
 ]
 

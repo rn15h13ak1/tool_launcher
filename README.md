@@ -73,7 +73,7 @@ python menu.py 3 2 2 --yes   # 課題クローン → 来週 → 実行（確認
 | 選択が余った | 警告を表示する（指定が実際のメニューとずれている可能性がある） |
 | 日付の手動入力 | 無人実行では使用不可（週プリセットを指定する） |
 
-**自前の対話メニューを持つツール（4・6・7）は無人実行できません。**
+**自前の対話メニューを持つツール（4・6・7・8）は無人実行できません。**
 ランチャー側にサブメニューを持たず、ツール自身の対話メニューを起動するためです。
 自動化する場合は、それぞれの本体を直接呼び出してください。
 
@@ -82,6 +82,7 @@ python menu.py 3 2 2 --yes   # 課題クローン → 来週 → 実行（確認
 | 4 | `file_sync_checker/main.py --no-progress` |
 | 6 | `docgrep/docgrep.py` |
 | 7 | `docmold/docmold.py` |
+| 8 | `backlog_change_log/backlog_change_log.py` |
 
 3番の「その他の操作」も同じ理由で無人実行できません（`3 4` を指定すると
 ツール側のメニューが入力待ちになります）。1〜3 の週次一括は無人実行できます。
@@ -135,8 +136,9 @@ $ python menu.py --log
 | 5 | ファイルリスト生成 | `filelist/filelist.py` | 通常実行 / ドライラン / 詳細ログ |
 | 6 | docgrep（ファイル全文検索） | `docgrep/menu.py` | docgrep 側の対話メニューに委譲 |
 | 7 | docmold（Markdown → HTML 変換） | `docmold/menu.py` | docmold 側の対話メニューに委譲 |
+| 8 | Backlog 変更記録 | `backlog_change_log/menu.py` | backlog_change_log 側の対話メニューに委譲 |
 
-自前の対話メニューを持つツール（4・6・7）は、ランチャー側にサブメニューを置かず
+自前の対話メニューを持つツール（4・6・7・8）は、ランチャー側にサブメニューを置かず
 そのメニューをそのまま起動します。オプションの追加はツール側だけで完結します。
 
 ### 3. Backlog 課題クローン
@@ -176,7 +178,9 @@ ws/
 ├── backlog_issue_cloner/
 ├── file_sync_checker/
 ├── filelist/
-└── docgrep/
+├── docgrep/
+├── docmold/
+└── backlog_change_log/
 ```
 
 ツールが配置されていない場合、メニューには `※未配置` と表示され、
