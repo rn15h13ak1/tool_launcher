@@ -13,6 +13,15 @@
   直接更新）を開けるようにした。週次一括はランチャー側に残している。ツール側の
   メニューは 1 日ぶんしか扱わず、委譲すると月〜金の一括登録が失われるため
 
+### Changed
+- `CLAUDE.md` の「共通規約からの逸脱: commit / push を確認なしで行う」を、規約 A への
+  参照に置き換えた。2026-10-02 の規約 A の改定で逸脱でなくなったため
+  （提案 `../proposals/stale-commit-push-deviation.md`）
+
+### Fixed
+- `test_run_script_returns_127_for_missing_script` が `../docgrep` の実在に頼っており、
+  docgrep の削除で落ちていた。一時ディレクトリにツールを置いて確かめるようにした
+
 ### Added
 - `make_console_safe()`。UTF-8 でないコンソールに限り、表せない文字を `?` に置き換えて
   出す。`tools.yaml` のラベルは利用者が書くためソースの検査では防げず、絵文字を 1 つ
