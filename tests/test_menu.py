@@ -163,8 +163,10 @@ def test_run_script_returns_127_for_missing_tool_dir(capsys):
     assert "ツールが見つかりません" in capsys.readouterr().out
 
 
-def test_run_script_returns_127_for_missing_script(capsys):
-    rc = menu.run_script("docgrep", "no_such_script.py", wait=False)
+def test_run_script_returns_127_for_missing_script(monkeypatch, tmp_path, capsys):
+    (tmp_path / "some_tool").mkdir()
+    monkeypatch.setattr(menu, "TOOLS_ROOT", tmp_path)
+    rc = menu.run_script("some_tool", "no_such_script.py", wait=False)
     assert rc == 127
     assert "スクリプトが見つかりません" in capsys.readouterr().out
 
