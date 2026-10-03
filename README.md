@@ -60,7 +60,7 @@ Windows では `menu.bat` をダブルクリックしても起動できます。
 ツール番号に続けてサブメニューの選択を並べると、**入力待ちなし**で実行します。
 
 ```bash
-python menu.py 2 1           # Excel → Backlog 課題登録 → ドライラン
+python menu.py 5 2           # ファイルリスト生成 → ドライラン
 python menu.py 3 2 1         # 課題クローン → 来週 → ドライラン
 python menu.py 3 2 2 --yes   # 課題クローン → 来週 → 実行（確認を承認）
 ```
@@ -73,13 +73,14 @@ python menu.py 3 2 2 --yes   # 課題クローン → 来週 → 実行（確認
 | 選択が余った | 警告を表示する（指定が実際のメニューとずれている可能性がある） |
 | 日付の手動入力 | 無人実行では使用不可（週プリセットを指定する） |
 
-**自前の対話メニューを持つツール（4・7・8）は無人実行できません。**
+**自前の対話メニューを持つツール（4・6・7・8）は無人実行できません。**
 ランチャー側にサブメニューを持たず、ツール自身の対話メニューを起動するためです。
 自動化する場合は、それぞれの本体を直接呼び出してください。
 
 | # | 自動化する場合に呼ぶもの |
 |---|---|
 | 4 | `file_sync_checker/main.py --no-progress` |
+| 6 | `docgrep/docgrep.py` |
 | 7 | `docmold/docmold.py` |
 | 8 | `backlog_change_log/backlog_change_log.py` |
 
@@ -132,15 +133,12 @@ $ python menu.py --log
 | 2 | Excel → Backlog 課題登録 | `excel_to_backlog/excel_to_backlog.py` | ドライラン / プレビュー / 実行 / 列名一覧 / 設定名一覧 |
 | 3 | Backlog 課題クローン（週次登録） | `backlog_issue_cloner/` | 今週・来週・再来週 × ドライラン / 実行、その他の操作はツール側メニューへ |
 | 4 | ファイル同期チェック | `file_sync_checker/menu.py` | file_sync_checker 側の対話メニューに委譲 |
-| 5 | ファイルリスト生成（削除済み・欠番） | なし | なし |
-| 6 | docgrep（ファイル全文検索）（削除済み・欠番） | なし | なし |
+| 5 | ファイルリスト生成 | `filelist/filelist.py` | 通常実行 / ドライラン / 詳細ログ |
+| 6 | docgrep（ファイル全文検索） | `docgrep/menu.py` | docgrep 側の対話メニューに委譲 |
 | 7 | docmold（Markdown → HTML 変換） | `docmold/menu.py` | docmold 側の対話メニューに委譲 |
 | 8 | Backlog 変更記録 | `backlog_change_log/menu.py` | backlog_change_log 側の対話メニューに委譲 |
 
-欠番（5・6）は番号を保つために残しています。メニューには `※削除済み` と表示され、
-選ぶとメッセージを出して戻ります。直接起動（`menu.py 5` など）では exit 2 で終わります。
-
-自前の対話メニューを持つツール（4・7・8）は、ランチャー側にサブメニューを置かず
+自前の対話メニューを持つツール（4・6・7・8）は、ランチャー側にサブメニューを置かず
 そのメニューをそのまま起動します。オプションの追加はツール側だけで完結します。
 
 ### 3. Backlog 課題クローン
@@ -179,6 +177,8 @@ ws/
 ├── excel_to_backlog/
 ├── backlog_issue_cloner/
 ├── file_sync_checker/
+├── filelist/
+├── docgrep/
 ├── docmold/
 └── backlog_change_log/
 ```

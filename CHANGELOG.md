@@ -17,9 +17,6 @@
 - `CLAUDE.md` の「共通規約からの逸脱: commit / push を確認なしで行う」を、規約 A への
   参照に置き換えた。2026-10-02 の規約 A の改定で逸脱でなくなったため
   （提案 `../proposals/stale-commit-push-deviation.md`）
-- ファイルリスト生成（5 番）と docgrep（6 番）を欠番にした。番号を保つため項目は残し、
-  選んでも実行しない。メニューには `※削除済み` と表示し、直接起動では exit 2 で終える
-  （提案 `../proposals/tool-launcher-docgrep-entry/proposal.md`）
 
 ### Fixed
 - `test_run_script_returns_127_for_missing_script` が `../docgrep` の実在に頼っており、
