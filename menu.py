@@ -477,6 +477,16 @@ def make_tool_handler(entry: dict):
     script   = entry.get("script", "main.py")
     options  = entry.get("options") or []
 
+    # 欠番のツールは実行しない。番号を保つために項目だけ残している
+    if entry.get("retired"):
+        def retired_handler():
+            print("\n  ※ このツールは削除済みです（欠番）")
+            wait_enter()
+            return None
+
+        retired_handler.__doc__ = label
+        return retired_handler
+
     def handler():
         # 選択肢が無いツールはそのまま実行する
         if not options:
@@ -528,6 +538,9 @@ def make_tool_handler(entry: dict):
 #       "handler":  run_your_tool,             # 自分で書いたハンドラ関数
 #       "tool_dir": "ツールのディレクトリ名",
 #   },
+#
+# 使わなくなったツールは消さずに "retired": True を付けて欠番にする。
+# 途中の項目を消すと、後ろの番号がずれて無人実行コマンドの意味が変わるため。
 # ================================================================
 
 COMMANDS = [
@@ -567,6 +580,7 @@ COMMANDS = [
         "label":    "ファイルリスト生成",
         "tool_dir": "filelist",
         "script":   "filelist.py",
+        "retired":  True,               # 欠番（番号を保つため項目は残す）
         "options": [
             {"label": "通常実行", "args": []},
             {"label": "ドライラン（設定検証のみ）", "args": ["--dry-run"]},
@@ -577,6 +591,7 @@ COMMANDS = [
         "label":    "docgrep（ファイル全文検索）",
         "tool_dir": "docgrep",
         "script":   "menu.py",          # docgrep 側の対話メニューに委譲する
+        "retired":  True,               # 欠番（番号を保つため項目は残す）
     },
     {
         "label":    "docmold（Markdown → HTML 変換）",
@@ -653,11 +668,13 @@ def all_commands() -> list:
 
 
 def menu_labels(commands: list = None) -> list:
-    """メニュー表示用ラベル。未配置のツールには印を付ける。"""
+    """メニュー表示用ラベル。欠番と未配置のツールには印を付ける。"""
     labels = []
     for cmd in (all_commands() if commands is None else commands):
         tool_dir = cmd.get("tool_dir")
-        if tool_dir and not (TOOLS_ROOT / tool_dir).is_dir():
+        if cmd.get("retired"):
+            labels.append(f"{cmd['label']}  ※削除済み")
+        elif tool_dir and not (TOOLS_ROOT / tool_dir).is_dir():
             labels.append(f"{cmd['label']}  ※未配置")
         else:
             labels.append(cmd["label"])
@@ -753,12 +770,13 @@ def default_choice(commands: list) -> int:
     """
     前回実行したツールの番号を返す（無ければ None）。
     番号ではなくラベルで覚えるので、tools.yaml の増減で位置がずれても追従する。
+    欠番のツールは既定にしない。
     """
     last = load_last_label()
     if not last:
         return None
     for i, cmd in enumerate(commands, 1):
-        if cmd["label"] == last:
+        if cmd["label"] == last and not cmd.get("retired"):
             return i
     return None
 
@@ -790,7 +808,7 @@ def print_help(commands: list = None) -> None:
     print("           （指定しないと確認箇所でエラー終了する）")
     print()
     print("例:")
-    print("  python menu.py 5 2         ファイルリスト生成をドライランで実行")
+    print("  python menu.py 2 1         Excel → Backlog 課題登録をドライランで実行")
     print("  python menu.py 3 2 1       課題クローン: 来週 → ドライラン")
     print("  python menu.py 3 2 2 --yes 課題クローン: 来週 → 実行（確認を承認）")
     print()
@@ -837,6 +855,11 @@ def run_directly(arg: str, presets: list = None, assume_yes: bool = False) -> in
         return 2
 
     cmd = commands[int(arg) - 1]
+    # 欠番を 0 で終えると、cron に登録済みのコマンドが黙って成功扱いになる
+    if cmd.get("retired"):
+        print(f"  ※ {arg} 番は削除済みのツールです（欠番）")
+        return 2
+
     set_batch_mode(presets, assume_yes)
     print(f"\n  直接実行: {cmd['label']}")
     try:

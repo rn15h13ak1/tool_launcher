@@ -231,7 +231,31 @@ def test_menu_order_is_stable():
 
 def test_menu_labels_marks_missing_tools(monkeypatch, tmp_path):
     monkeypatch.setattr(menu, "TOOLS_ROOT", tmp_path)
-    assert all("※未配置" in label for label in menu.menu_labels())
+    labels = menu.menu_labels()
+    active = [label for label, cmd in zip(labels, menu.COMMANDS)
+              if not cmd.get("retired")]
+    assert all("※未配置" in label for label in active)
+
+
+RETIRED_LABELS = ["ファイルリスト生成", "docgrep（ファイル全文検索）"]
+
+
+def test_retired_entries_are_numbers_5_and_6():
+    """欠番は番号を保つため、項目を消さずに残している。"""
+    retired = [i for i, c in enumerate(menu.COMMANDS, 1) if c.get("retired")]
+    assert retired == [5, 6]
+    assert [menu.COMMANDS[i - 1]["label"] for i in retired] == RETIRED_LABELS
+
+
+@pytest.mark.parametrize("root", ["real", "empty"])
+def test_menu_labels_mark_retired_tools(monkeypatch, tmp_path, root):
+    """欠番には「※削除済み」を付け、配置の有無にかかわらず「※未配置」は付けない。"""
+    if root == "empty":
+        monkeypatch.setattr(menu, "TOOLS_ROOT", tmp_path)
+    labels = menu.menu_labels(menu.COMMANDS)
+    for i in (5, 6):
+        assert labels[i - 1].endswith("  ※削除済み")
+        assert "※未配置" not in labels[i - 1]
 
 
 def test_menu_labels_are_clean_when_tools_exist():
@@ -280,6 +304,13 @@ def test_default_choice_matches_by_label(history_file):
 def test_default_choice_is_none_for_unknown_label(history_file):
     menu.save_last_label("もう存在しないツール")
     assert menu.default_choice([{"label": "A"}]) is None
+
+
+@pytest.mark.parametrize("label", RETIRED_LABELS)
+def test_default_choice_skips_retired_tools(history_file, label):
+    """前回の記録が欠番のツールでも、欠番を既定にしない。"""
+    menu.save_last_label(label)
+    assert menu.default_choice(menu.COMMANDS) is None
 
 
 def test_print_menu_empty_input_uses_default(monkeypatch):
@@ -538,10 +569,36 @@ def test_run_directly_is_quiet_when_all_answers_used(monkeypatch, history_file,
     assert "使われなかった選択" not in capsys.readouterr().out
 
 
-def test_docgrep_entry_has_no_submenu():
-    """docgrep はランチャー側にサブメニューを持たない（README の注記と対応）。"""
+def test_docgrep_entry_is_retired():
+    """docgrep は欠番（README の注記と対応）。"""
     entry = next(c for c in menu.COMMANDS if c["tool_dir"] == "docgrep")
-    assert not entry.get("options")
+    assert entry.get("retired") is True
+
+
+@pytest.mark.parametrize("arg, presets", [("5", [2]), ("6", [2]), ("5", [])])
+def test_run_directly_rejects_retired_tools(monkeypatch, history_file,
+                                            spy_run_script, capsys,
+                                            arg, presets):
+    """cron の `menu.py 5 2` が黙って成功扱いにならないよう、2 で終える。"""
+    monkeypatch.setattr(menu, "load_yaml_commands", lambda: [])
+    assert menu.run_directly(arg, presets=presets) == 2
+    assert spy_run_script.calls == []
+    assert f"{arg} 番は削除済みのツールです（欠番）" in capsys.readouterr().out
+    assert menu.load_last_label() == ""          # 欠番は前回として記録しない
+
+
+@pytest.mark.parametrize("arg, tool_dir", [
+    ("7", "docmold"),
+    ("8", "backlog_change_log"),
+])
+def test_numbers_after_retired_tools_are_unchanged(monkeypatch, history_file,
+                                                   spy_run_script,
+                                                   arg, tool_dir):
+    """欠番の後ろの番号は今までどおりのツールを起動する。"""
+    monkeypatch.setattr(menu, "load_yaml_commands", lambda: [])
+    assert menu.run_directly(arg) == 0
+    assert spy_run_script.calls == [{"tool": tool_dir, "script": "menu.py",
+                                     "args": [], "wait": True}]
 
 
 def test_run_directly_restores_interactive_mode(monkeypatch, history_file):
@@ -773,20 +830,17 @@ def test_excel_to_backlog_declined_runs_nothing(monkeypatch, spy_run_script,
     assert "キャンセルしました" in capsys.readouterr().out
 
 
-@pytest.mark.parametrize("choice, expected", [
-    (1, []),
-    (2, ["--dry-run"]),
-    (3, ["-v"]),
-])
-def test_filelist_passes_mode(spy_run_script, choice, expected):
-    menu.set_batch_mode([choice])
-    assert handler_for("ファイルリスト")() == 0
-    assert spy_run_script.calls[0]["tool"] == "filelist"
-    assert spy_run_script.calls[0]["args"] == expected
+@pytest.mark.parametrize("label", ["ファイルリスト", "docgrep"])
+def test_retired_handler_runs_nothing(monkeypatch, spy_run_script, capsys,
+                                      label):
+    """欠番のハンドラはメッセージを出して戻るだけで、ツールを起動しない。"""
+    monkeypatch.setattr(menu, "wait_enter", lambda: None)
+    assert handler_for(label)() is None
+    assert spy_run_script.calls == []
+    assert "このツールは削除済みです（欠番）" in capsys.readouterr().out
 
 
 @pytest.mark.parametrize("label, tool_dir", [
-    ("docgrep", "docgrep"),
     ("docmold", "docmold"),
     ("ファイル同期", "file_sync_checker"),
     ("Backlog 変更記録", "backlog_change_log"),
@@ -799,7 +853,7 @@ def test_tools_delegating_to_their_own_menu(spy_run_script, label, tool_dir):
 
 
 @pytest.mark.parametrize("label", [
-    "Backlog 週次レポート", "Excel", "ファイルリスト",
+    "Backlog 週次レポート", "Excel",
 ])
 def test_handlers_return_none_and_run_nothing_when_cancelled(spy_run_script,
                                                              label):
@@ -914,6 +968,7 @@ def test_every_builtin_handler_returns_none_when_cancelled(monkeypatch):
     monkeypatch.setattr(menu, "print_menu", lambda *a, **kw: 0)
     monkeypatch.setattr(menu, "run_script",
                         lambda *a, **kw: pytest.fail("キャンセル時に実行された"))
+    monkeypatch.setattr(menu, "wait_enter", lambda: None)   # 欠番のハンドラが待つため
     for cmd in menu.COMMANDS:
         if cmd.get("script") == "menu.py":
             continue          # ツール側の対話メニューに委譲するため対象外
